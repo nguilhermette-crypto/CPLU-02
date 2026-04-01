@@ -62,10 +62,15 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   throw new Error(JSON.stringify(errInfo));
 }
 
-const COLLECTION_NAME = 'fuel_records';
+const getCollectionPath = () => {
+  const userId = auth.currentUser?.uid;
+  if (!userId) throw new Error('Usuário não autenticado');
+  return `users/${userId}/fuel_records`;
+};
 
 export const subscribeToRecords = (onUpdate: (records: FuelRecord[]) => void) => {
-  const q = query(collection(db, COLLECTION_NAME), orderBy('timestamp', 'desc'));
+  const path = getCollectionPath();
+  const q = query(collection(db, path), orderBy('timestamp', 'desc'));
   
   return onSnapshot(q, (snapshot) => {
     const records = snapshot.docs.map(doc => ({
@@ -74,26 +79,28 @@ export const subscribeToRecords = (onUpdate: (records: FuelRecord[]) => void) =>
     })) as FuelRecord[];
     onUpdate(records);
   }, (error) => {
-    handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME);
+    handleFirestoreError(error, OperationType.LIST, path);
   });
 };
 
 export const saveRecord = async (record: Omit<FuelRecord, 'id'>) => {
+  const path = getCollectionPath();
   try {
-    await addDoc(collection(db, COLLECTION_NAME), {
+    await addDoc(collection(db, path), {
       ...record,
-      userId: auth.currentUser?.uid || 'anonymous'
+      userId: auth.currentUser?.uid
     });
   } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, COLLECTION_NAME);
+    handleFirestoreError(error, OperationType.CREATE, path);
   }
 };
 
 export const removeRecord = async (id: string) => {
+  const path = getCollectionPath();
   try {
-    await deleteDoc(doc(db, COLLECTION_NAME, id));
+    await deleteDoc(doc(db, path, id));
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, `${COLLECTION_NAME}/${id}`);
+    handleFirestoreError(error, OperationType.DELETE, `${path}/${id}`);
   }
 };
 

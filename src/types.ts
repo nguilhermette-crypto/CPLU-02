@@ -11,6 +11,7 @@ export interface FuelRecord {
   consumption?: number;
   observation?: string;
   userId: string;
+  responsibleName: string;
 }
 
 export interface TruckStats {

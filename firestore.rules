@@ -39,7 +39,7 @@ service cloud.firestore {
     }
 
     function isValidFuelRecord(data) {
-      return data.keys().hasAll(['id', 'plate', 'driverName', 'shift', 'mileage', 'amount', 'fuelType', 'timestamp', 'userId']) &&
+      return data.keys().hasAll(['id', 'plate', 'driverName', 'shift', 'mileage', 'amount', 'fuelType', 'timestamp', 'userId', 'responsibleName']) &&
              data.id is string &&
              data.plate is string && data.plate.size() > 0 && data.plate.size() < 10 &&
              data.driverName is string && data.driverName.size() > 0 && data.driverName.size() < 100 &&
@@ -48,14 +48,14 @@ service cloud.firestore {
              data.amount is number && data.amount > 0 &&
              data.fuelType is string &&
              data.timestamp is string &&
-             data.userId == request.auth.uid;
+             data.userId == request.auth.uid &&
+             data.responsibleName is string && data.responsibleName.size() > 0;
     }
 
-    match /fuel_records/{recordId} {
-      allow read: if isAuthenticated(); // Allow all authenticated users to read records for reports
-      allow create: if isAuthenticated() && isValidFuelRecord(request.resource.data);
-      allow update: if isDocOwner() && isValidFuelRecord(request.resource.data);
-      allow delete: if isDocOwner();
+    match /users/{userId}/fuel_records/{recordId} {
+      allow read, delete: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidFuelRecord(request.resource.data);
+      allow update: if isOwner(userId) && isValidFuelRecord(request.resource.data);
     }
   }
 }

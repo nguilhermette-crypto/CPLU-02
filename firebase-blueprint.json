@@ -16,15 +16,16 @@
         "timestamp": { "type": "string", "format": "date-time", "description": "Data e hora do registro" },
         "consumption": { "type": "number", "description": "Consumo calculado (KM/L)" },
         "observation": { "type": "string", "description": "Observações adicionais" },
-        "userId": { "type": "string", "description": "UID do usuário que criou o registro" }
+        "userId": { "type": "string", "description": "UID do usuário que criou o registro" },
+        "responsibleName": { "type": "string", "description": "Nome do responsável pelo abastecimento" }
       },
-      "required": ["id", "plate", "driverName", "shift", "mileage", "amount", "fuelType", "timestamp", "userId"]
+      "required": ["id", "plate", "driverName", "shift", "mileage", "amount", "fuelType", "timestamp", "userId", "responsibleName"]
     }
   },
   "firestore": {
-    "/fuel_records/{recordId}": {
+    "/users/{userId}/fuel_records/{recordId}": {
       "schema": "FuelRecord",
-      "description": "Coleção de registros de abastecimento."
+      "description": "Coleção de registros de abastecimento vinculados ao usuário."
     }
   }
 }

@@ -23,11 +23,24 @@ export const HistoryList = () => {
   });
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedTruck, setSelectedTruck] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = subscribeToRecords(setRecords);
     return () => unsubscribe();
   }, []);
+
+  const truckRecords = selectedTruck 
+    ? records.filter(r => r.plate === selectedTruck)
+    : [];
+
+  const truckAvgConsumption = truckRecords.length > 0
+    ? truckRecords.filter(r => r.consumption !== undefined).reduce((acc, r) => acc + (r.consumption || 0), 0) / truckRecords.filter(r => r.consumption !== undefined).length
+    : 0;
+
+  const truckLastKm = truckRecords.length > 0
+    ? Math.max(...truckRecords.map(r => r.mileage))
+    : 0;
 
   const handleDelete = async (id: string) => {
     setIsDeleting(true);
@@ -110,7 +123,12 @@ export const HistoryList = () => {
                     <Truck size={28} />
                   </div>
                   <div>
-                    <div className="font-black text-slate-800 text-lg tracking-tight">{record.plate}</div>
+                    <button 
+                      onClick={() => setSelectedTruck(record.plate)}
+                      className="font-black text-slate-800 text-lg tracking-tight hover:text-orange-500 transition-colors"
+                    >
+                      {record.plate}
+                    </button>
                     <div className="flex flex-col gap-0.5">
                       <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
                         <User size={12} />
@@ -154,6 +172,70 @@ export const HistoryList = () => {
       </div>
 
       <AnimatePresence>
+        {selectedTruck && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              className="bg-white w-full max-w-md rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[80vh]"
+            >
+              <div className="bg-orange-500 p-6 text-white flex justify-between items-center">
+                <div>
+                  <h3 className="text-2xl font-black tracking-tight">{selectedTruck}</h3>
+                  <p className="text-orange-100 text-[10px] font-bold uppercase tracking-widest">Histórico do Veículo</p>
+                </div>
+                <button 
+                  onClick={() => setSelectedTruck(null)}
+                  className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-all"
+                >
+                  <History size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 grid grid-cols-2 gap-4 border-b border-slate-100">
+                <div className="bg-slate-50 p-4 rounded-2xl">
+                  <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Consumo Médio</div>
+                  <div className="text-lg font-black text-green-600">{truckAvgConsumption > 0 ? `${truckAvgConsumption.toFixed(2)} KM/L` : '---'}</div>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-2xl">
+                  <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Último KM</div>
+                  <div className="text-lg font-black text-slate-800">{truckLastKm.toLocaleString()} KM</div>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                {truckRecords.map(r => (
+                  <div key={r.id} className="border-l-4 border-orange-500 pl-4 py-1">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="text-xs font-black text-slate-700">{format(parseISO(r.timestamp), 'dd/MM/yyyy HH:mm')}</div>
+                        <div className="text-[10px] font-bold text-slate-400">{r.driverName} • {r.shift}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-black text-orange-600">{r.amount}L</div>
+                        <div className="text-[9px] font-bold text-slate-400">{r.mileage.toLocaleString()} KM</div>
+                      </div>
+                    </div>
+                    {r.consumption && (
+                      <div className="text-[10px] font-black text-green-600 mt-1">{r.consumption.toFixed(2)} KM/L</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-6 bg-slate-50">
+                <button 
+                  onClick={() => setSelectedTruck(null)}
+                  className="w-full bg-slate-800 text-white py-4 rounded-2xl font-black text-sm active:scale-95 transition-all"
+                >
+                  FECHAR
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {deletingId && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
             <motion.div 

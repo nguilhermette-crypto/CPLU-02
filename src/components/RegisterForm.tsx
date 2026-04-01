@@ -53,21 +53,34 @@ export const RegisterForm = () => {
       return;
     }
 
+    const currentMileage = Number(formData.mileage);
+    const currentAmount = Number(formData.amount);
+
+    // KM Consistency Check
+    if (lastMileage !== null && currentMileage <= lastMileage) {
+      setError('Verificar quilometragem: O KM atual deve ser maior que o anterior.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const today = new Date();
-      const lastRecordToday = records
-        .filter(r => 
-          r.plate.toUpperCase() === formData.plate.toUpperCase() && 
-          isSameDay(parseISO(r.timestamp), today)
-        )
+      const lastRecord = records
+        .filter(r => r.plate.toUpperCase() === formData.plate.toUpperCase())
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
 
       let consumption: number | undefined = undefined;
-      if (lastRecordToday) {
-        const distance = Number(formData.mileage) - lastRecordToday.mileage;
+      if (lastRecord) {
+        const distance = currentMileage - lastRecord.mileage;
         if (distance > 0) {
-          consumption = distance / Number(formData.amount);
+          consumption = distance / currentAmount;
+        }
+      }
+
+      // Consumption Pattern Alert (Example: < 2 or > 15 KM/L)
+      if (consumption !== undefined && (consumption < 2 || consumption > 15)) {
+        if (!window.confirm(`Consumo fora do padrão (${consumption.toFixed(2)} KM/L). Deseja registrar assim mesmo?`)) {
+          setIsSubmitting(false);
+          return;
         }
       }
 
@@ -76,13 +89,14 @@ export const RegisterForm = () => {
         driverName: formData.driverName,
         driverId: formData.driverId || undefined,
         shift: formData.shift,
-        mileage: Number(formData.mileage),
-        amount: Number(formData.amount),
+        mileage: currentMileage,
+        amount: currentAmount,
         fuelType: formData.fuelType,
         timestamp: new Date().toISOString(),
         consumption: consumption,
         observation: formData.observation,
-        userId: auth.currentUser?.uid || 'anonymous'
+        userId: auth.currentUser?.uid || 'anonymous',
+        responsibleName: auth.currentUser?.displayName || auth.currentUser?.email || 'Sistema'
       };
 
       await saveRecord(newRecord);
