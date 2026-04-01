@@ -1,0 +1,61 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: fuel_records
+    // Document ID: recordId
+    // Fields:
+    //   - id: string (required) - ID único do registro
+    //   - plate: string (required) - Placa do veículo
+    //   - driverName: string (required) - Nome do motorista
+    //   - driverId: string (optional) - Matrícula do motorista
+    //   - shift: string (required, enum: ["Manhã", "Tarde"]) - Turno do abastecimento
+    //   - mileage: number (required) - Quilometragem no momento do abastecimento
+    //   - amount: number (required) - Quantidade de litros abastecidos
+    //   - fuelType: string (required) - Tipo de combustível
+    //   - timestamp: string (required, format: date-time) - Data e hora do registro
+    //   - consumption: number (optional) - Consumo calculado (KM/L)
+    //   - observation: string (optional) - Observações adicionais
+    //   - userId: string (required) - UID do usuário que criou o registro
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isValidFuelRecord(data) {
+      return data.keys().hasAll(['id', 'plate', 'driverName', 'shift', 'mileage', 'amount', 'fuelType', 'timestamp', 'userId']) &&
+             data.id is string &&
+             data.plate is string && data.plate.size() > 0 && data.plate.size() < 10 &&
+             data.driverName is string && data.driverName.size() > 0 && data.driverName.size() < 100 &&
+             data.shift in ['Manhã', 'Tarde'] &&
+             data.mileage is number && data.mileage >= 0 &&
+             data.amount is number && data.amount > 0 &&
+             data.fuelType is string &&
+             data.timestamp is string &&
+             data.userId == request.auth.uid;
+    }
+
+    match /fuel_records/{recordId} {
+      allow read: if isAuthenticated(); // Allow all authenticated users to read records for reports
+      allow create: if isAuthenticated() && isValidFuelRecord(request.resource.data);
+      allow update: if isDocOwner() && isValidFuelRecord(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+  }
+}

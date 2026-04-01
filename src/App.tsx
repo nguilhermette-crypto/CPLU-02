@@ -1,0 +1,90 @@
+import React, { useState, useEffect, createContext, useContext } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Layout } from './components/Layout';
+import { RegisterForm } from './components/RegisterForm';
+import { HistoryList } from './components/HistoryList';
+import { ReportSummary } from './components/ReportSummary';
+import { auth, signIn, logOut } from './firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { LogIn, LogOut, User as UserIcon } from 'lucide-react';
+
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+}
+
+const AuthContext = createContext<AuthContextType>({ user: null, loading: true });
+
+export const useAuth = () => useContext(AuthContext);
+
+const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setLoading(false);
+    });
+    return unsubscribe;
+  }, []);
+
+  return (
+    <AuthContext.Provider value={{ user, loading }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+const AuthBarrier = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+        <div className="bg-white p-8 rounded-[32px] shadow-xl max-w-sm w-full text-center">
+          <div className="w-20 h-20 bg-orange-50 rounded-[32px] flex items-center justify-center text-orange-500 mx-auto mb-6">
+            <UserIcon size={40} />
+          </div>
+          <h2 className="text-2xl font-black text-slate-800 mb-2">Bem-vindo ao CPLU</h2>
+          <p className="text-slate-400 text-sm font-medium mb-8">Faça login para acessar o controle de frota.</p>
+          <button 
+            onClick={signIn}
+            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-5 rounded-[24px] shadow-xl shadow-orange-100 flex items-center justify-center gap-3 transition-all active:scale-[0.96]"
+          >
+            <LogIn size={22} />
+            ENTRAR COM GOOGLE
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+};
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <AuthBarrier>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<RegisterForm />} />
+              <Route path="/historico" element={<HistoryList />} />
+              <Route path="/relatorios" element={<ReportSummary />} />
+            </Routes>
+          </Layout>
+        </AuthBarrier>
+      </Router>
+    </AuthProvider>
+  );
+}

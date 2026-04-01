@@ -1,0 +1,30 @@
+{
+  "entities": {
+    "FuelRecord": {
+      "title": "FuelRecord",
+      "description": "Registro de abastecimento de um veículo.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "ID único do registro" },
+        "plate": { "type": "string", "description": "Placa do veículo" },
+        "driverName": { "type": "string", "description": "Nome do motorista" },
+        "driverId": { "type": "string", "description": "Matrícula do motorista" },
+        "shift": { "type": "string", "enum": ["Manhã", "Tarde"], "description": "Turno do abastecimento" },
+        "mileage": { "type": "number", "description": "Quilometragem no momento do abastecimento" },
+        "amount": { "type": "number", "description": "Quantidade de litros abastecidos" },
+        "fuelType": { "type": "string", "description": "Tipo de combustível" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Data e hora do registro" },
+        "consumption": { "type": "number", "description": "Consumo calculado (KM/L)" },
+        "observation": { "type": "string", "description": "Observações adicionais" },
+        "userId": { "type": "string", "description": "UID do usuário que criou o registro" }
+      },
+      "required": ["id", "plate", "driverName", "shift", "mileage", "amount", "fuelType", "timestamp", "userId"]
+    }
+  },
+  "firestore": {
+    "/fuel_records/{recordId}": {
+      "schema": "FuelRecord",
+      "description": "Coleção de registros de abastecimento."
+    }
+  }
+}
