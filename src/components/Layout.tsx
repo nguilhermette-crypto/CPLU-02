@@ -6,13 +6,15 @@ import {
   BarChart3, 
   Truck, 
   Fuel,
-  LogOut
+  LogOut,
+  Fingerprint
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { logOut } from '../firebase';
+import { logOut, auth } from '../firebase';
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
+  const userId = auth.currentUser?.uid;
   
   const navItems = [
     { path: '/', icon: PlusCircle, label: 'Registrar' },
@@ -33,6 +35,12 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {userId && (
+            <div className="hidden sm:flex items-center gap-1 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 mr-2">
+              <Fingerprint size={12} className="text-slate-400" />
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">UID: {userId}</span>
+            </div>
+          )}
           <button 
             onClick={logOut}
             className="p-2 text-slate-400 hover:text-red-500 transition-colors"

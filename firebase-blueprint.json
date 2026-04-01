@@ -23,7 +23,7 @@
     }
   },
   "firestore": {
-    "/users/{userId}/fuel_records/{recordId}": {
+    "/users/{userId}/abastecimentos/{recordId}": {
       "schema": "FuelRecord",
       "description": "Coleção de registros de abastecimento vinculados ao usuário."
     }

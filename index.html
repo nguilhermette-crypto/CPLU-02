@@ -4,6 +4,45 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>My Google AI Studio App</title>
+    <script>
+      (function() {
+        if (typeof window === 'undefined') return;
+        const originalFetch = window.fetch;
+        const noopSetter = {
+          get() { return originalFetch; },
+          set() { /* ignore */ },
+          configurable: true,
+          enumerable: true
+        };
+        const targets = [window, globalThis, self];
+        if (window.Window) targets.push(window.Window.prototype);
+        
+        targets.forEach(obj => {
+          if (!obj) return;
+          try {
+            Object.defineProperty(obj, 'fetch', noopSetter);
+          } catch (e) {}
+        });
+
+        // Some libs expect 'global'
+        if (typeof window.global === 'undefined') {
+          try {
+            const proxy = new Proxy(window, {
+              set(target, prop, value) {
+                if (prop === 'fetch') return true;
+                try { target[prop] = value; } catch (e) {}
+                return true;
+              },
+              get(target, prop) {
+                const val = target[prop];
+                return typeof val === 'function' ? val.bind(target) : val;
+              }
+            });
+            window.global = proxy;
+          } catch (e) {}
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

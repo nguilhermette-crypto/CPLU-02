@@ -68,7 +68,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 const getCollectionPath = () => {
   const userId = auth.currentUser?.uid;
   if (!userId) throw new Error('Usuário não autenticado');
-  return `users/${userId}/fuel_records`;
+  return `users/${userId}/abastecimentos`;
 };
 
 export const subscribeToRecords = (onUpdate: (records: FuelRecord[]) => void, limitCount?: number) => {

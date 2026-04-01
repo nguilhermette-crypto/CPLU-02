@@ -5,7 +5,7 @@ service cloud.firestore {
     // Assumed Data Model
     // ===============================================================
     //
-    // Collection: fuel_records
+    // Collection: abastecimentos
     // Document ID: recordId
     // Fields:
     //   - id: string (required) - ID único do registro
@@ -52,7 +52,7 @@ service cloud.firestore {
              data.responsibleName is string && data.responsibleName.size() > 0;
     }
 
-    match /users/{userId}/fuel_records/{recordId} {
+    match /users/{userId}/abastecimentos/{recordId} {
       allow read, delete: if isOwner(userId);
       allow create: if isOwner(userId) && isValidFuelRecord(request.resource.data);
       allow update: if isOwner(userId) && isValidFuelRecord(request.resource.data);
