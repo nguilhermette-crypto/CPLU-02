@@ -7,7 +7,9 @@ import {
   User,
   Trash2,
   AlertCircle,
-  History
+  History,
+  Loader2,
+  ChevronDown
 } from 'lucide-react';
 import { format, isSameDay, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
@@ -16,6 +18,8 @@ import { subscribeToRecords, removeRecord } from '../services/storage';
 
 export const HistoryList = () => {
   const [records, setRecords] = useState<FuelRecord[]>([]);
+  const [limitCount, setLimitCount] = useState(20);
+  const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState({
     search: '',
     date: '',
@@ -26,9 +30,13 @@ export const HistoryList = () => {
   const [selectedTruck, setSelectedTruck] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = subscribeToRecords(setRecords);
+    setIsLoading(true);
+    const unsubscribe = subscribeToRecords((newRecords) => {
+      setRecords(newRecords);
+      setIsLoading(false);
+    }, limitCount);
     return () => unsubscribe();
-  }, []);
+  }, [limitCount]);
 
   const truckRecords = selectedTruck 
     ? records.filter(r => r.plate === selectedTruck)
@@ -109,65 +117,88 @@ export const HistoryList = () => {
       </div>
 
       <div className="space-y-3">
-        {filteredRecords.length === 0 ? (
+        {isLoading && records.length === 0 ? (
+          <div className="text-center py-16 text-slate-300">
+            <Loader2 size={48} className="mx-auto mb-4 animate-spin opacity-20" />
+            <p className="font-bold uppercase tracking-widest text-[10px]">Carregando histórico...</p>
+          </div>
+        ) : filteredRecords.length === 0 ? (
           <div className="text-center py-16 text-slate-300">
             <History size={64} className="mx-auto mb-4 opacity-10" />
             <p className="font-bold uppercase tracking-widest text-xs">Nenhum registro</p>
           </div>
         ) : (
-          filteredRecords.map((record) => (
-            <div key={record.id} className="bg-white p-5 rounded-[28px] shadow-sm border border-slate-50 flex flex-col gap-3 active:bg-orange-50 transition-all group">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500 group-active:bg-white transition-colors">
-                    <Truck size={28} />
-                  </div>
-                  <div>
-                    <button 
-                      onClick={() => setSelectedTruck(record.plate)}
-                      className="font-black text-slate-800 text-lg tracking-tight hover:text-orange-500 transition-colors"
-                    >
-                      {record.plate}
-                    </button>
-                    <div className="flex flex-col gap-0.5">
-                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
-                        <User size={12} />
-                        <span>{record.driverName} {record.driverId ? `(${record.driverId})` : ''}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-orange-500">
-                        <Calendar size={10} />
-                        <span>{record.shift}</span>
+          <>
+            {filteredRecords.map((record) => (
+              <div key={record.id} className="bg-white p-5 rounded-[28px] shadow-sm border border-slate-50 flex flex-col gap-3 active:bg-orange-50 transition-all group">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500 group-active:bg-white transition-colors">
+                      <Truck size={28} />
+                    </div>
+                    <div>
+                      <button 
+                        onClick={() => setSelectedTruck(record.plate)}
+                        className="font-black text-slate-800 text-lg tracking-tight hover:text-orange-500 transition-colors"
+                      >
+                        {record.plate}
+                      </button>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
+                          <User size={12} />
+                          <span>{record.driverName} {record.driverId ? `(${record.driverId})` : ''}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-orange-500">
+                          <Calendar size={10} />
+                          <span>{record.shift}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xl font-black text-orange-600 leading-none">{record.amount}L</div>
-                  <div className="text-[10px] font-black text-slate-400 uppercase mt-1.5 tracking-wider">{record.fuelType}</div>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between pt-3 border-t border-slate-50">
-                <div className="flex flex-col">
-                  <div className="text-[10px] font-bold text-slate-300">
-                    {format(parseISO(record.timestamp), 'dd/MM/yyyy HH:mm')}
+                  <div className="text-right">
+                    <div className="text-xl font-black text-orange-600 leading-none">{record.amount}L</div>
+                    <div className="text-[10px] font-black text-slate-400 uppercase mt-1.5 tracking-wider">{record.fuelType}</div>
                   </div>
-                  <div className="text-[11px] font-black text-slate-800">{record.mileage.toLocaleString()} KM</div>
-                  {record.consumption && (
-                    <div className="text-[10px] font-black text-green-600 uppercase tracking-tighter">
-                      {record.consumption.toFixed(2)} KM/L
-                    </div>
-                  )}
                 </div>
-                <button 
-                  onClick={() => setDeletingId(record.id)}
-                  className="w-10 h-10 bg-red-50 text-red-500 rounded-xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
-                >
-                  <Trash2 size={18} />
-                </button>
+                
+                <div className="flex items-center justify-between pt-3 border-t border-slate-50">
+                  <div className="flex flex-col">
+                    <div className="text-[10px] font-bold text-slate-300">
+                      {format(parseISO(record.timestamp), 'dd/MM/yyyy HH:mm')}
+                    </div>
+                    <div className="text-[11px] font-black text-slate-800">{record.mileage.toLocaleString()} KM</div>
+                    {record.consumption && (
+                      <div className="text-[10px] font-black text-green-600 uppercase tracking-tighter">
+                        {record.consumption.toFixed(2)} KM/L
+                      </div>
+                    )}
+                  </div>
+                  <button 
+                    onClick={() => setDeletingId(record.id)}
+                    className="w-10 h-10 bg-red-50 text-red-500 rounded-xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))
+            ))}
+            
+            {records.length >= limitCount && (
+              <button 
+                onClick={() => setLimitCount(prev => prev + 20)}
+                className="w-full py-4 bg-white border-2 border-slate-50 rounded-2xl text-slate-400 font-black text-[11px] uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <>
+                    <ChevronDown size={16} />
+                    Carregar Mais
+                  </>
+                )}
+              </button>
+            )}
+          </>
         )}
       </div>
 

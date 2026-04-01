@@ -1,12 +1,14 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
-import { RegisterForm } from './components/RegisterForm';
-import { HistoryList } from './components/HistoryList';
-import { ReportSummary } from './components/ReportSummary';
-import { auth, signIn, logOut } from './firebase';
+import { auth, signIn } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { LogIn, LogOut, User as UserIcon } from 'lucide-react';
+import { LogIn, User as UserIcon, Loader2 } from 'lucide-react';
+
+// Lazy load components for better initial performance
+const RegisterForm = lazy(() => import('./components/RegisterForm').then(m => ({ default: m.RegisterForm })));
+const HistoryList = lazy(() => import('./components/HistoryList').then(m => ({ default: m.HistoryList })));
+const ReportSummary = lazy(() => import('./components/ReportSummary').then(m => ({ default: m.ReportSummary })));
 
 interface AuthContextType {
   user: User | null;
@@ -128,17 +130,26 @@ const AuthBarrier = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const PageLoader = () => (
+  <div className="flex flex-col items-center justify-center py-20 text-slate-300">
+    <Loader2 size={48} className="animate-spin mb-4 opacity-20" />
+    <p className="font-bold uppercase tracking-widest text-[10px]">Carregando página...</p>
+  </div>
+);
+
 export default function App() {
   return (
     <AuthProvider>
       <Router>
         <AuthBarrier>
           <Layout>
-            <Routes>
-              <Route path="/" element={<RegisterForm />} />
-              <Route path="/historico" element={<HistoryList />} />
-              <Route path="/relatorios" element={<ReportSummary />} />
-            </Routes>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route path="/" element={<RegisterForm />} />
+                <Route path="/historico" element={<HistoryList />} />
+                <Route path="/relatorios" element={<ReportSummary />} />
+              </Routes>
+            </Suspense>
           </Layout>
         </AuthBarrier>
       </Router>

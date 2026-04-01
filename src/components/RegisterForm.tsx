@@ -3,12 +3,12 @@ import {
   PlusCircle, 
   History, 
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
-import { isSameDay, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import { FuelRecord } from '../types';
-import { saveRecord, subscribeToRecords } from '../services/storage';
+import { saveRecord, getLastRecordForPlate } from '../services/storage';
 import { auth } from '../firebase';
 
 export const RegisterForm = () => {
@@ -22,27 +22,35 @@ export const RegisterForm = () => {
     fuelType: 'Diesel S10',
     observation: ''
   });
-  const [records, setRecords] = useState<FuelRecord[]>([]);
   const [lastMileage, setLastMileage] = useState<number | null>(null);
+  const [lastRecord, setLastRecord] = useState<FuelRecord | null>(null);
+  const [isLoadingLast, setIsLoadingLast] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = subscribeToRecords(setRecords);
-    return () => unsubscribe();
-  }, []);
+    const fetchLast = async () => {
+      if (formData.plate.length >= 3) {
+        setIsLoadingLast(true);
+        try {
+          const last = await getLastRecordForPlate(formData.plate);
+          setLastRecord(last);
+          setLastMileage(last ? last.mileage : null);
+        } catch (err) {
+          console.error('Error fetching last record:', err);
+        } finally {
+          setIsLoadingLast(false);
+        }
+      } else {
+        setLastRecord(null);
+        setLastMileage(null);
+      }
+    };
 
-  useEffect(() => {
-    if (formData.plate.length >= 3) {
-      const last = records
-        .filter(r => r.plate.toUpperCase() === formData.plate.toUpperCase())
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-      setLastMileage(last ? last.mileage : null);
-    } else {
-      setLastMileage(null);
-    }
-  }, [formData.plate, records]);
+    const timer = setTimeout(fetchLast, 500);
+    return () => clearTimeout(timer);
+  }, [formData.plate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,10 +72,6 @@ export const RegisterForm = () => {
 
     setIsSubmitting(true);
     try {
-      const lastRecord = records
-        .filter(r => r.plate.toUpperCase() === formData.plate.toUpperCase())
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-
       let consumption: number | undefined = undefined;
       if (lastRecord) {
         const distance = currentMileage - lastRecord.mileage;
@@ -115,6 +119,7 @@ export const RegisterForm = () => {
           observation: ''
         });
         setLastMileage(null);
+        setLastRecord(null);
       }, 2000);
     } catch (err) {
       setError('Erro ao salvar o registro. Tente novamente.');
@@ -147,7 +152,12 @@ export const RegisterForm = () => {
               value={formData.plate}
               onChange={e => setFormData({...formData, plate: e.target.value})}
             />
-            {lastMileage !== null && (
+            {isLoadingLast ? (
+              <div className="text-[10px] font-bold text-slate-400 ml-1 flex items-center gap-1">
+                <Loader2 size={12} className="animate-spin" />
+                Buscando último KM...
+              </div>
+            ) : lastMileage !== null && (
               <div className="text-[10px] font-bold text-orange-500 ml-1 flex items-center gap-1">
                 <History size={12} />
                 Último KM registrado: {lastMileage.toLocaleString()} KM

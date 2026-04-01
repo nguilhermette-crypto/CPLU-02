@@ -6,7 +6,10 @@ import {
   query, 
   orderBy, 
   onSnapshot,
-  getDocFromServer
+  getDocFromServer,
+  limit,
+  where,
+  getDocs
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { FuelRecord } from '../types';
@@ -68,9 +71,13 @@ const getCollectionPath = () => {
   return `users/${userId}/fuel_records`;
 };
 
-export const subscribeToRecords = (onUpdate: (records: FuelRecord[]) => void) => {
+export const subscribeToRecords = (onUpdate: (records: FuelRecord[]) => void, limitCount?: number) => {
   const path = getCollectionPath();
-  const q = query(collection(db, path), orderBy('timestamp', 'desc'));
+  let q = query(collection(db, path), orderBy('timestamp', 'desc'));
+  
+  if (limitCount) {
+    q = query(q, limit(limitCount));
+  }
   
   return onSnapshot(q, (snapshot) => {
     const records = snapshot.docs.map(doc => ({
@@ -81,6 +88,25 @@ export const subscribeToRecords = (onUpdate: (records: FuelRecord[]) => void) =>
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, path);
   });
+};
+
+export const getLastRecordForPlate = async (plate: string): Promise<FuelRecord | null> => {
+  const path = getCollectionPath();
+  const q = query(
+    collection(db, path), 
+    where('plate', '==', plate.toUpperCase()), 
+    orderBy('timestamp', 'desc'), 
+    limit(1)
+  );
+  
+  try {
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return null;
+    return { ...snapshot.docs[0].data(), id: snapshot.docs[0].id } as FuelRecord;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+    return null;
+  }
 };
 
 export const saveRecord = async (record: Omit<FuelRecord, 'id'>) => {
