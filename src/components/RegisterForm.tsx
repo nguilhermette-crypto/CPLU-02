@@ -91,17 +91,23 @@ export const RegisterForm = () => {
       const newRecord: Omit<FuelRecord, 'id'> = {
         plate: formData.plate.toUpperCase(),
         driverName: formData.driverName,
-        driverId: formData.driverId || undefined,
         shift: formData.shift,
         mileage: currentMileage,
         amount: currentAmount,
         fuelType: formData.fuelType,
         timestamp: new Date().toISOString(),
-        consumption: consumption,
         observation: formData.observation,
         userId: auth.currentUser?.uid || 'anonymous',
         responsibleName: auth.currentUser?.displayName || auth.currentUser?.email || 'Sistema'
       };
+
+      if (formData.driverId) {
+        newRecord.driverId = formData.driverId;
+      }
+
+      if (consumption !== undefined) {
+        newRecord.consumption = consumption;
+      }
 
       await saveRecord(newRecord);
       setSuccess(true);

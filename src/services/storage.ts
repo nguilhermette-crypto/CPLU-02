@@ -112,10 +112,17 @@ export const getLastRecordForPlate = async (plate: string): Promise<FuelRecord |
 export const saveRecord = async (record: Omit<FuelRecord, 'id'>) => {
   const path = getCollectionPath();
   try {
-    await addDoc(collection(db, path), {
+    const dataToSave = {
       ...record,
       userId: auth.currentUser?.uid
-    });
+    };
+
+    // Remove undefined fields to prevent Firestore errors
+    const cleanData = Object.fromEntries(
+      Object.entries(dataToSave).filter(([_, value]) => value !== undefined)
+    );
+
+    await addDoc(collection(db, path), cleanData);
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);
   }
