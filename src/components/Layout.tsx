@@ -7,7 +7,8 @@ import {
   Truck, 
   Fuel,
   LogOut,
-  Fingerprint
+  Fingerprint,
+  LayoutDashboard
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { logOut, auth } from '../firebase';
@@ -17,7 +18,8 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const userId = auth.currentUser?.uid;
   
   const navItems = [
-    { path: '/', icon: PlusCircle, label: 'Registrar' },
+    { path: '/', icon: LayoutDashboard, label: 'Início' },
+    { path: '/registrar', icon: PlusCircle, label: 'Registrar' },
     { path: '/historico', icon: History, label: 'Histórico' },
     { path: '/relatorios', icon: BarChart3, label: 'Relatórios' },
   ];
@@ -25,7 +27,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="min-h-screen bg-slate-50 pb-24 font-sans text-slate-900">
       <header className="sticky top-0 z-10 bg-white border-b border-orange-100 px-4 py-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-3">
+        <Link to="/" className="flex items-center gap-3">
           <div className="bg-orange-500 p-2 rounded-xl text-white shadow-md shadow-orange-100">
             <Fuel size={24} />
           </div>
@@ -33,7 +35,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
             <h1 className="text-2xl font-black tracking-tighter text-orange-600 leading-none">CPLU</h1>
             <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-400 mt-1">Controle de Frota</p>
           </div>
-        </div>
+        </Link>
         <div className="flex items-center gap-2">
           {userId && (
             <div className="hidden sm:flex items-center gap-1 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 mr-2">
@@ -58,9 +60,9 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
         {children}
       </main>
 
-      {location.pathname !== '/' && (
+      {location.pathname !== '/registrar' && (
         <Link 
-          to="/" 
+          to="/registrar" 
           className="fixed bottom-28 right-6 z-40 bg-orange-500 text-white px-6 py-4 rounded-full font-black shadow-2xl shadow-orange-300 flex items-center gap-2 active:scale-95 transition-all"
         >
           <PlusCircle size={24} />

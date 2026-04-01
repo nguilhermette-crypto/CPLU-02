@@ -9,10 +9,13 @@ import {
   getDocFromServer,
   limit,
   where,
-  getDocs
+  getDocs,
+  startAt,
+  endAt
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { FuelRecord } from '../types';
+import { startOfDay, endOfDay, subDays } from 'date-fns';
 
 export enum OperationType {
   CREATE = 'create',
@@ -106,6 +109,50 @@ export const getLastRecordForPlate = async (plate: string): Promise<FuelRecord |
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, path);
     return null;
+  }
+};
+
+export const getMorningRecordForPlateOnDay = async (plate: string, date: Date): Promise<FuelRecord | null> => {
+  const path = getCollectionPath();
+  const start = startOfDay(date).toISOString();
+  const end = endOfDay(date).toISOString();
+  
+  const q = query(
+    collection(db, path),
+    where('plate', '==', plate.toUpperCase()),
+    where('shift', '==', 'Manhã'),
+    where('timestamp', '>=', start),
+    where('timestamp', '<=', end),
+    limit(1)
+  );
+  
+  try {
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return null;
+    return { ...snapshot.docs[0].data(), id: snapshot.docs[0].id } as FuelRecord;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+    return null;
+  }
+};
+
+export const getWeeklyRecordsForPlate = async (plate: string): Promise<FuelRecord[]> => {
+  const path = getCollectionPath();
+  const sevenDaysAgo = subDays(new Date(), 7).toISOString();
+  
+  const q = query(
+    collection(db, path),
+    where('plate', '==', plate.toUpperCase()),
+    where('timestamp', '>=', sevenDaysAgo),
+    orderBy('timestamp', 'desc')
+  );
+  
+  try {
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as FuelRecord[];
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    return [];
   }
 };
 

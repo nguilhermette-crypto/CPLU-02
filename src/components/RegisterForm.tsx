@@ -4,11 +4,19 @@ import {
   History, 
   AlertCircle,
   CheckCircle2,
-  Loader2
+  Loader2,
+  TrendingDown,
+  TrendingUp,
+  AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { FuelRecord } from '../types';
-import { saveRecord, getLastRecordForPlate } from '../services/storage';
+import { 
+  saveRecord, 
+  getLastRecordForPlate, 
+  getMorningRecordForPlateOnDay,
+  getWeeklyRecordsForPlate 
+} from '../services/storage';
 import { auth } from '../firebase';
 
 export const RegisterForm = () => {
@@ -28,6 +36,7 @@ export const RegisterForm = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [weeklyAvg, setWeeklyAvg] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchLast = async () => {
@@ -37,6 +46,16 @@ export const RegisterForm = () => {
           const last = await getLastRecordForPlate(formData.plate);
           setLastRecord(last);
           setLastMileage(last ? last.mileage : null);
+
+          // Fetch weekly average for alerts
+          const weeklyRecords = await getWeeklyRecordsForPlate(formData.plate);
+          const recordsWithConsumption = weeklyRecords.filter(r => r.consumption !== undefined);
+          if (recordsWithConsumption.length > 0) {
+            const avg = recordsWithConsumption.reduce((acc, r) => acc + (r.consumption || 0), 0) / recordsWithConsumption.length;
+            setWeeklyAvg(avg);
+          } else {
+            setWeeklyAvg(null);
+          }
         } catch (err) {
           console.error('Error fetching last record:', err);
         } finally {
@@ -45,6 +64,7 @@ export const RegisterForm = () => {
       } else {
         setLastRecord(null);
         setLastMileage(null);
+        setWeeklyAvg(null);
       }
     };
 
@@ -73,18 +93,31 @@ export const RegisterForm = () => {
     setIsSubmitting(true);
     try {
       let consumption: number | undefined = undefined;
-      if (lastRecord) {
-        const distance = currentMileage - lastRecord.mileage;
-        if (distance > 0) {
-          consumption = distance / currentAmount;
+      
+      // NEW LOGIC: Only calculate consumption in the afternoon shift
+      if (formData.shift === 'Tarde') {
+        const morningRecord = await getMorningRecordForPlateOnDay(formData.plate, new Date());
+        if (morningRecord) {
+          const distance = currentMileage - morningRecord.mileage;
+          if (distance > 0) {
+            // Formula: (KM tarde - KM manhã) / litros da manhã
+            consumption = distance / morningRecord.amount;
+          }
         }
       }
 
-      // Consumption Pattern Alert (Example: < 2 or > 15 KM/L)
-      if (consumption !== undefined && (consumption < 2 || consumption > 15)) {
-        if (!window.confirm(`Consumo fora do padrão (${consumption.toFixed(2)} KM/L). Deseja registrar assim mesmo?`)) {
-          setIsSubmitting(false);
-          return;
+      // Weekly Average Alert
+      if (consumption !== undefined && weeklyAvg !== null) {
+        const diff = Math.abs(consumption - weeklyAvg) / weeklyAvg;
+        if (diff > 0.20) { // 20% deviation
+          const message = consumption > weeklyAvg 
+            ? `Consumo (${consumption.toFixed(2)}) está MUITO ACIMA da média semanal (${weeklyAvg.toFixed(2)}). Deseja registrar?`
+            : `Consumo (${consumption.toFixed(2)}) está MUITO ABAIXO da média semanal (${weeklyAvg.toFixed(2)}). Deseja registrar?`;
+          
+          if (!window.confirm(message)) {
+            setIsSubmitting(false);
+            return;
+          }
         }
       }
 
@@ -126,6 +159,7 @@ export const RegisterForm = () => {
         });
         setLastMileage(null);
         setLastRecord(null);
+        setWeeklyAvg(null);
       }, 2000);
     } catch (err) {
       setError('Erro ao salvar o registro. Tente novamente.');

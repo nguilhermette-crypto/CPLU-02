@@ -14,7 +14,10 @@
         "amount": { "type": "number", "description": "Quantidade de litros abastecidos" },
         "fuelType": { "type": "string", "description": "Tipo de combustível" },
         "timestamp": { "type": "string", "format": "date-time", "description": "Data e hora do registro" },
-        "consumption": { "type": "number", "description": "Consumo calculado (KM/L)" },
+        "consumption": {
+          "type": "number",
+          "description": "Consumo calculado (KM/L). Calculado no turno da Tarde usando (KM Tarde - KM Manhã) / Litros Manhã."
+        },
         "observation": { "type": "string", "description": "Observações adicionais" },
         "userId": { "type": "string", "description": "UID do usuário que criou o registro" },
         "responsibleName": { "type": "string", "description": "Nome do responsável pelo abastecimento" }
