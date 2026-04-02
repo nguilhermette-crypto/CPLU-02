@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO, startOfDay, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { FuelRecord, TruckAlert, AlertStatus } from '../types';
 import { subscribeToRecordsByDate, getRecordsForCurrentWeek } from '../services/storage';
 
@@ -24,6 +24,7 @@ export const ReportSummary = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [alerts, setAlerts] = useState<TruckAlert[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -224,9 +225,10 @@ export const ReportSummary = () => {
       }
 
       doc.save(`relatorio_cplu_${format(selectedDate, 'yyyy-MM-dd')}.pdf`);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Erro ao gerar o PDF. Por favor, tente novamente.');
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      setError('Erro ao gerar o PDF. Por favor, tente novamente.');
+      setTimeout(() => setError(null), 5000);
     }
   };
 
@@ -264,9 +266,10 @@ export const ReportSummary = () => {
       XLSX.utils.book_append_sheet(wb, wsAlerts, 'Alertas');
 
       XLSX.writeFile(wb, `relatorio_cplu_${format(selectedDate, 'yyyy-MM-dd')}.xlsx`);
-    } catch (error) {
-      console.error('Error exporting Excel:', error);
-      alert('Erro ao exportar Excel.');
+    } catch (err) {
+      console.error('Error exporting Excel:', err);
+      setError('Erro ao exportar Excel.');
+      setTimeout(() => setError(null), 5000);
     }
   };
 
@@ -363,6 +366,20 @@ export const ReportSummary = () => {
             <div className="text-2xl font-black text-green-700">{avgConsumption.toFixed(2)} KM/L</div>
           </div>
         )}
+
+        <AnimatePresence>
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="bg-red-50 text-red-600 p-4 rounded-2xl text-xs font-bold mb-6 border border-red-100 flex items-center gap-2"
+            >
+              <AlertTriangle size={16} />
+              {error}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="flex flex-col gap-3">
           <button 

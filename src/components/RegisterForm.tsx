@@ -37,6 +37,8 @@ export const RegisterForm = () => {
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [weeklyAvg, setWeeklyAvg] = useState<number | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState('');
 
   useEffect(() => {
     const fetchLast = async () => {
@@ -114,12 +116,26 @@ export const RegisterForm = () => {
             ? `Consumo (${consumption.toFixed(2)}) está MUITO ACIMA da média semanal (${weeklyAvg.toFixed(2)}). Deseja registrar?`
             : `Consumo (${consumption.toFixed(2)}) está MUITO ABAIXO da média semanal (${weeklyAvg.toFixed(2)}). Deseja registrar?`;
           
-          if (!window.confirm(message)) {
-            setIsSubmitting(false);
-            return;
-          }
+          setConfirmMessage(message);
+          setShowConfirmModal(true);
+          setIsSubmitting(false);
+          return;
         }
       }
+
+      await executeSave(consumption);
+    } catch (err) {
+      setError('Erro ao salvar o registro. Tente novamente.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const executeSave = async (consumption?: number) => {
+    try {
+      setIsSubmitting(true);
+      const currentMileage = Number(formData.mileage);
+      const currentAmount = Number(formData.amount);
 
       const newRecord: Omit<FuelRecord, 'id'> = {
         plate: formData.plate.toUpperCase(),
@@ -165,6 +181,7 @@ export const RegisterForm = () => {
       setError('Erro ao salvar o registro. Tente novamente.');
     } finally {
       setIsSubmitting(false);
+      setShowConfirmModal(false);
     }
   };
 
@@ -174,6 +191,53 @@ export const RegisterForm = () => {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
+      <AnimatePresence>
+        {showConfirmModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white w-full max-w-sm rounded-[32px] p-8 shadow-2xl"
+            >
+              <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 mb-6">
+                <AlertTriangle size={32} />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 mb-2">Atenção ao Consumo</h3>
+              <p className="text-slate-500 text-sm font-medium mb-8 leading-relaxed">
+                {confirmMessage}
+              </p>
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => {
+                    const currentMileage = Number(formData.mileage);
+                    const currentAmount = Number(formData.amount);
+                    // Recalculate consumption for executeSave
+                    getMorningRecordForPlateOnDay(formData.plate, new Date()).then(morningRecord => {
+                      let consumption: number | undefined = undefined;
+                      if (morningRecord) {
+                        const distance = currentMileage - morningRecord.mileage;
+                        if (distance > 0) consumption = distance / morningRecord.amount;
+                      }
+                      executeSave(consumption);
+                    });
+                  }}
+                  className="w-full bg-orange-500 text-white font-black py-4 rounded-2xl shadow-lg shadow-orange-100 active:scale-95 transition-all"
+                >
+                  SIM, REGISTRAR
+                </button>
+                <button 
+                  onClick={() => setShowConfirmModal(false)}
+                  className="w-full bg-slate-100 text-slate-500 font-black py-4 rounded-2xl active:scale-95 transition-all"
+                >
+                  NÃO, VOLTAR
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <div className="bg-white p-8 rounded-[32px] shadow-xl shadow-slate-200/50 border border-white">
         <h2 className="text-xl font-black mb-8 text-slate-800 flex items-center gap-3">
           <div className="w-10 h-10 bg-orange-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-orange-200">
