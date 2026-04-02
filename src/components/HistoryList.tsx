@@ -167,6 +167,18 @@ export const HistoryList = () => {
                       {format(parseISO(record.timestamp), 'dd/MM/yyyy HH:mm')}
                     </div>
                     <div className="text-[11px] font-black text-slate-800">{record.mileage.toLocaleString()} KM</div>
+                    <div className="flex gap-2 mt-1">
+                      {record.mileageDiff !== undefined && (
+                        <div className="text-[9px] font-black bg-slate-100 px-2 py-0.5 rounded-md text-slate-500 uppercase tracking-tighter">
+                          Δ KM: {record.mileageDiff.toLocaleString()}
+                        </div>
+                      )}
+                      {record.horimeterDiff !== undefined && (
+                        <div className="text-[9px] font-black bg-orange-50 px-2 py-0.5 rounded-md text-orange-600 uppercase tracking-tighter">
+                          Δ HR: {record.horimeterDiff.toFixed(1)}
+                        </div>
+                      )}
+                    </div>
                     {record.consumption && (
                       <div className="text-[10px] font-black text-green-600 uppercase tracking-tighter">
                         {record.consumption.toFixed(2)} KM/L

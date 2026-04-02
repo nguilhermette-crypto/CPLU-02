@@ -143,7 +143,10 @@ export const ReportSummary = () => {
             r.plate,
             r.driverName,
             r.driverId || '-',
-            r.mileage.toLocaleString(),
+            r.mileageStart?.toLocaleString() || '-',
+            r.mileageEnd?.toLocaleString() || '-',
+            r.mileageDiff?.toLocaleString() || '-',
+            r.horimeterDiff?.toFixed(1) || '-',
             `${r.amount}L`,
             r.fuelType,
             format(parseISO(r.timestamp), 'HH:mm'),
@@ -152,11 +155,11 @@ export const ReportSummary = () => {
 
           autoTable(doc, {
             startY: currentY,
-            head: [['Placa', 'Motorista', 'Matr.', 'KM', 'Litros', 'Comb.', 'Hora', 'Consumo']],
+            head: [['Placa', 'Motorista', 'Matr.', 'KM Inic.', 'KM Final', 'Δ KM', 'Δ HR', 'Litros', 'Comb.', 'Hora', 'Consumo']],
             body: tableData,
             headStyles: { fillColor: [249, 115, 22] },
-            styles: { fontSize: 7 },
-            margin: { left: 14, right: 14 }
+            styles: { fontSize: 6 },
+            margin: { left: 10, right: 10 }
           });
 
           currentY = (doc as any).lastAutoTable.finalY + 10;
@@ -242,7 +245,12 @@ export const ReportSummary = () => {
         'Motorista': r.driverName,
         'Matrícula': r.driverId || '',
         'Turno': r.shift,
-        'KM': r.mileage,
+        'Hodômetro Inicial': r.mileageStart || '',
+        'Hodômetro Final': r.mileageEnd || '',
+        'Diferença KM': r.mileageDiff || '',
+        'Horímetro Inicial': r.horimeterStart || '',
+        'Horímetro Final': r.horimeterEnd || '',
+        'Diferença HR': r.horimeterDiff || '',
         'Litros': r.amount,
         'Combustível': r.fuelType,
         'Data/Hora': format(parseISO(r.timestamp), 'dd/MM/yyyy HH:mm'),

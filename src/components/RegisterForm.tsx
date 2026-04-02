@@ -26,10 +26,15 @@ export const RegisterForm = () => {
     driverId: '',
     shift: 'Manhã' as 'Manhã' | 'Tarde',
     mileage: '',
+    mileageStart: '',
+    mileageEnd: '',
+    horimeterStart: '',
+    horimeterEnd: '',
     amount: '',
     fuelType: 'Diesel S10',
     observation: ''
   });
+  const [isManualShift, setIsManualShift] = useState(false);
   const [lastMileage, setLastMileage] = useState<number | null>(null);
   const [lastRecord, setLastRecord] = useState<FuelRecord | null>(null);
   const [isLoadingLast, setIsLoadingLast] = useState(false);
@@ -74,21 +79,52 @@ export const RegisterForm = () => {
     return () => clearTimeout(timer);
   }, [formData.plate]);
 
+  // Automatic Shift Logic
+  useEffect(() => {
+    if (!isManualShift) {
+      const now = new Date();
+      const hour = now.getHours();
+      const autoShift = hour < 12 ? 'Manhã' : 'Tarde';
+      setFormData(prev => ({ ...prev, shift: autoShift }));
+    }
+  }, [isManualShift]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!formData.plate || !formData.driverName || !formData.mileage || !formData.amount || !formData.shift) {
+    if (!formData.plate || !formData.driverName || !formData.mileage || !formData.amount || !formData.shift || 
+        !formData.mileageStart || !formData.mileageEnd || !formData.horimeterStart || !formData.horimeterEnd) {
       setError('Por favor, preencha todos os campos obrigatórios.');
       return;
     }
 
     const currentMileage = Number(formData.mileage);
     const currentAmount = Number(formData.amount);
+    const mStart = Number(formData.mileageStart);
+    const mEnd = Number(formData.mileageEnd);
+    const hStart = Number(formData.horimeterStart);
+    const hEnd = Number(formData.horimeterEnd);
 
-    // KM Consistency Check
+    // Validations
+    if (mEnd < mStart) {
+      setError('Hodômetro final não pode ser menor que o inicial.');
+      return;
+    }
+    if (hEnd < hStart) {
+      setError('Horímetro final não pode ser menor que o inicial.');
+      return;
+    }
+
+    // KM Consistency Check (mileage is the final odometer for the record)
     if (lastMileage !== null && currentMileage <= lastMileage) {
       setError('Verificar quilometragem: O KM atual deve ser maior que o anterior.');
+      return;
+    }
+    
+    // Ensure mileage matches mileageEnd for consistency
+    if (currentMileage !== mEnd) {
+      setError('A quilometragem principal deve ser igual ao hodômetro final.');
       return;
     }
 
@@ -136,12 +172,22 @@ export const RegisterForm = () => {
       setIsSubmitting(true);
       const currentMileage = Number(formData.mileage);
       const currentAmount = Number(formData.amount);
+      const mStart = Number(formData.mileageStart);
+      const mEnd = Number(formData.mileageEnd);
+      const hStart = Number(formData.horimeterStart);
+      const hEnd = Number(formData.horimeterEnd);
 
       const newRecord: Omit<FuelRecord, 'id'> = {
         plate: formData.plate.toUpperCase(),
         driverName: formData.driverName,
         shift: formData.shift,
         mileage: currentMileage,
+        mileageStart: mStart,
+        mileageEnd: mEnd,
+        horimeterStart: hStart,
+        horimeterEnd: hEnd,
+        mileageDiff: mEnd - mStart,
+        horimeterDiff: hEnd - hStart,
         amount: currentAmount,
         fuelType: formData.fuelType,
         timestamp: new Date().toISOString(),
@@ -167,12 +213,17 @@ export const RegisterForm = () => {
           plate: '',
           driverName: '',
           driverId: '',
-          shift: 'Manhã',
+          shift: new Date().getHours() < 12 ? 'Manhã' : 'Tarde',
           mileage: '',
+          mileageStart: '',
+          mileageEnd: '',
+          horimeterStart: '',
+          horimeterEnd: '',
           amount: '',
           fuelType: 'Diesel S10',
           observation: ''
         });
+        setIsManualShift(false);
         setLastMileage(null);
         setLastRecord(null);
         setWeeklyAvg(null);
@@ -282,26 +333,98 @@ export const RegisterForm = () => {
             </div>
             <div className="space-y-2">
               <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Turno</label>
-              <select 
-                className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 focus:border-orange-500 focus:bg-white outline-none transition-all font-bold text-slate-700 appearance-none"
-                value={formData.shift}
-                onChange={e => setFormData({...formData, shift: e.target.value as 'Manhã' | 'Tarde'})}
-              >
-                <option value="Manhã">Manhã</option>
-                <option value="Tarde">Tarde</option>
-              </select>
+              <div className="flex bg-slate-50 rounded-2xl p-1 border-2 border-slate-50">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData({...formData, shift: 'Manhã'});
+                    setIsManualShift(true);
+                  }}
+                  className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                    formData.shift === 'Manhã' 
+                      ? 'bg-white text-orange-600 shadow-sm' 
+                      : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  Manhã
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData({...formData, shift: 'Tarde'});
+                    setIsManualShift(true);
+                  }}
+                  className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                    formData.shift === 'Tarde' 
+                      ? 'bg-white text-orange-600 shadow-sm' 
+                      : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  Tarde
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Quilometragem</label>
+              <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Hodômetro Inicial</label>
               <input 
                 type="number" 
                 placeholder="0"
                 className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 focus:border-orange-500 focus:bg-white outline-none transition-all font-bold text-slate-700"
+                value={formData.mileageStart}
+                onChange={e => setFormData({...formData, mileageStart: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Hodômetro Final</label>
+              <input 
+                type="number" 
+                placeholder="0"
+                className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 focus:border-orange-500 focus:bg-white outline-none transition-all font-bold text-slate-700"
+                value={formData.mileageEnd}
+                onChange={e => {
+                  setFormData({...formData, mileageEnd: e.target.value, mileage: e.target.value});
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Horímetro Inicial</label>
+              <input 
+                type="number" 
+                step="0.1"
+                placeholder="0.0"
+                className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 focus:border-orange-500 focus:bg-white outline-none transition-all font-bold text-slate-700"
+                value={formData.horimeterStart}
+                onChange={e => setFormData({...formData, horimeterStart: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Horímetro Final</label>
+              <input 
+                type="number" 
+                step="0.1"
+                placeholder="0.0"
+                className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 focus:border-orange-500 focus:bg-white outline-none transition-all font-bold text-slate-700"
+                value={formData.horimeterEnd}
+                onChange={e => setFormData({...formData, horimeterEnd: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Quilometragem (Geral)</label>
+              <input 
+                type="number" 
+                placeholder="0"
+                readOnly
+                className="w-full bg-slate-100 border-2 border-slate-100 rounded-2xl px-5 py-4 outline-none font-bold text-slate-400 cursor-not-allowed"
                 value={formData.mileage}
-                onChange={e => setFormData({...formData, mileage: e.target.value})}
               />
             </div>
             <div className="space-y-2">

@@ -49,7 +49,13 @@ service cloud.firestore {
              data.fuelType is string &&
              data.timestamp is string &&
              data.userId == request.auth.uid &&
-             data.responsibleName is string && data.responsibleName.size() > 0;
+             data.responsibleName is string && data.responsibleName.size() > 0 &&
+             (!('mileageStart' in data) || data.mileageStart is number) &&
+             (!('mileageEnd' in data) || data.mileageEnd is number) &&
+             (!('horimeterStart' in data) || data.horimeterStart is number) &&
+             (!('horimeterEnd' in data) || data.horimeterEnd is number) &&
+             (!('mileageDiff' in data) || data.mileageDiff is number) &&
+             (!('horimeterDiff' in data) || data.horimeterDiff is number);
     }
 
     match /users/{userId}/abastecimentos/{recordId} {
