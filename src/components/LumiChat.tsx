@@ -158,13 +158,17 @@ export const LumiChat = () => {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-24 right-4 z-50 w-14 h-14 rounded-full shadow-xl shadow-orange-200 overflow-hidden border-2 border-white active:scale-90 transition-all hover:scale-110 bg-white"
+        className="fixed bottom-28 right-4 z-[100] w-14 h-14 rounded-full shadow-2xl shadow-orange-200 overflow-hidden border-2 border-white active:scale-90 transition-all hover:scale-110 bg-white"
       >
         <img 
           src={lumiAvatar} 
           alt="Lumi" 
           className="w-full h-full object-cover"
           referrerPolicy="no-referrer"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement;
+            target.src = "https://api.dicebear.com/7.x/avataaars/svg?seed=LumiFallback&backgroundColor=f97316";
+          }}
         />
       </button>
 
@@ -175,7 +179,7 @@ export const LumiChat = () => {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-40 right-4 z-50 w-[320px] max-w-[calc(100vw-32px)] h-[500px] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-100"
+            className="fixed bottom-44 right-4 z-[100] w-[320px] max-w-[calc(100vw-32px)] h-[500px] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-100"
           >
             {/* Header */}
             <div className="bg-white border-b border-slate-50 p-4 flex items-center justify-between">
