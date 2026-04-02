@@ -10,8 +10,8 @@ interface Message {
   timestamp: Date;
 }
 
-// Initial placeholder, will be updated by the generation logic if needed or kept as a fallback
-const DEFAULT_LUMI_AVATAR = "https://images.unsplash.com/photo-1624561172888-ac93c696e10c?q=80&w=1000&auto=format&fit=crop";
+// Initial placeholder using a 2D avatar service that matches the description better
+const DEFAULT_LUMI_AVATAR = "https://api.dicebear.com/7.x/avataaars/svg?seed=Lumi&backgroundColor=f97316&clothing=overall&clothingColor=f97316&hairColor=77311d&top=longHair";
 
 const QUICK_OPTIONS = [
   { id: 'cancelled', label: 'Por que foi cancelada?', response: 'Um registro pode ser cancelado se o KM atual for menor que o anterior ou se o consumo estiver muito fora da média e você optar por não confirmar.' },
@@ -34,13 +34,20 @@ export const LumiChat = () => {
     let isMounted = true;
     const generateAvatar = async () => {
       try {
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
-        const prompt = `Digital female character, 2D clean illustration style, professional and friendly. 
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+          console.warn("GEMINI_API_KEY not found, using default avatar.");
+          return;
+        }
+
+        const ai = new GoogleGenAI({ apiKey });
+        const prompt = `Digital female character, 2D clean flat illustration style, professional and friendly. 
         Features: brown hair, friendly expression with a slight smile, large friendly eyes, wearing a professional headset. 
         Clothing: Urban cleaning uniform with a bright orange reflective vest. 
         Colors: Predominant orange and secondary white. NO BLUE. 
-        Details: The text "CPLU" written in white on the vest or uniform. 
-        Background: Simple, clean, neutral.`;
+        Details: The text "CPLU" written in white on the vest. 
+        Background: Simple, clean, neutral white background. 
+        Style: Clean lines, well defined, 2D vector art style.`;
 
         const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash-image',
@@ -55,9 +62,11 @@ export const LumiChat = () => {
         });
 
         if (isMounted && response.candidates?.[0]?.content?.parts) {
-          for (const part of response.candidates[0].content.parts) {
+          const parts = response.candidates[0].content.parts;
+          for (const part of parts) {
             if (part.inlineData) {
               setLumiAvatar(`data:image/png;base64,${part.inlineData.data}`);
+              console.log("Custom 2D avatar generated successfully.");
               break;
             }
           }
@@ -201,7 +210,12 @@ export const LumiChat = () => {
                 <div key={msg.id} className={`flex items-end gap-2 ${msg.sender === 'lumi' ? 'justify-start' : 'justify-end'}`}>
                   {msg.sender === 'lumi' && (
                     <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 mb-1">
-                      <img src={lumiAvatar} alt="L" className="w-full h-full object-cover" />
+                      <img 
+                        src={lumiAvatar} 
+                        alt="L" 
+                        className="w-full h-full object-cover" 
+                        referrerPolicy="no-referrer"
+                      />
                     </div>
                   )}
                   <motion.div
@@ -221,7 +235,12 @@ export const LumiChat = () => {
               {isTyping && (
                 <div className="flex items-end gap-2 justify-start">
                   <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 mb-1">
-                    <img src={lumiAvatar} alt="L" className="w-full h-full object-cover" />
+                    <img 
+                      src={lumiAvatar} 
+                      alt="L" 
+                      className="w-full h-full object-cover" 
+                      referrerPolicy="no-referrer"
+                    />
                   </div>
                   <motion.div
                     initial={{ opacity: 0, y: 5 }}
