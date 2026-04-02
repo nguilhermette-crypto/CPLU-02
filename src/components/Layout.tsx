@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { logOut, auth } from '../firebase';
+import { LumiChat } from './LumiChat';
 
 export const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
@@ -63,12 +64,14 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       {location.pathname !== '/registrar' && (
         <Link 
           to="/registrar" 
-          className="fixed bottom-28 right-6 z-40 bg-orange-500 text-white px-6 py-4 rounded-full font-black shadow-2xl shadow-orange-300 flex items-center gap-2 active:scale-95 transition-all"
+          className="fixed bottom-48 right-6 z-40 bg-orange-500 text-white px-6 py-4 rounded-full font-black shadow-2xl shadow-orange-300 flex items-center gap-2 active:scale-95 transition-all"
         >
           <PlusCircle size={24} />
           <span>+ ABASTECER</span>
         </Link>
       )}
+
+      <LumiChat />
 
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-6 py-4 flex justify-around items-center shadow-[0_-8px_20px_rgba(0,0,0,0.05)] z-50 rounded-t-[32px]">
         {navItems.map((item) => {
