@@ -27,12 +27,14 @@ export const LumiChat = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [showOptions, setShowOptions] = useState(true);
   const [lumiAvatar, setLumiAvatar] = useState(DEFAULT_LUMI_AVATAR);
+  const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let isMounted = true;
     const generateAvatar = async () => {
       try {
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
         const prompt = `Digital female character, 2D clean illustration style, professional and friendly. 
         Features: brown hair, friendly expression with a slight smile, large friendly eyes, wearing a professional headset. 
         Clothing: Urban cleaning uniform with a bright orange reflective vest. 
@@ -52,10 +54,12 @@ export const LumiChat = () => {
           }
         });
 
-        for (const part of response.candidates[0].content.parts) {
-          if (part.inlineData) {
-            setLumiAvatar(`data:image/png;base64,${part.inlineData.data}`);
-            break;
+        if (isMounted && response.candidates?.[0]?.content?.parts) {
+          for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+              setLumiAvatar(`data:image/png;base64,${part.inlineData.data}`);
+              break;
+            }
           }
         }
       } catch (error) {
@@ -64,6 +68,7 @@ export const LumiChat = () => {
     };
 
     generateAvatar();
+    return () => { isMounted = false; };
   }, []);
 
   const scrollToBottom = () => {
@@ -91,8 +96,6 @@ export const LumiChat = () => {
       }, 1000);
     }
   }, [isOpen, messages.length]);
-
-  const [inputValue, setInputValue] = useState('');
 
   const handleSendMessage = (text: string) => {
     if (!text.trim()) return;
