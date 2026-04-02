@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { FuelRecord } from '../types';
-import { startOfDay, endOfDay, subDays } from 'date-fns';
+import { startOfDay, endOfDay, subDays, startOfWeek, endOfWeek, isWithinInterval, addDays } from 'date-fns';
 
 export enum OperationType {
   CREATE = 'create',
@@ -93,6 +93,29 @@ export const subscribeToRecords = (onUpdate: (records: FuelRecord[]) => void, li
   });
 };
 
+export const subscribeToRecordsByDate = (date: Date, onUpdate: (records: FuelRecord[]) => void) => {
+  const path = getCollectionPath();
+  const start = startOfDay(date).toISOString();
+  const end = endOfDay(date).toISOString();
+  
+  const q = query(
+    collection(db, path),
+    where('timestamp', '>=', start),
+    where('timestamp', '<=', end),
+    orderBy('timestamp', 'desc')
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const records = snapshot.docs.map(doc => ({
+      ...doc.data(),
+      id: doc.id
+    })) as FuelRecord[];
+    onUpdate(records);
+  }, (error) => {
+    handleFirestoreError(error, OperationType.LIST, path);
+  });
+};
+
 export const getLastRecordForPlate = async (plate: string): Promise<FuelRecord | null> => {
   const path = getCollectionPath();
   const q = query(
@@ -144,6 +167,29 @@ export const getWeeklyRecordsForPlate = async (plate: string): Promise<FuelRecor
     collection(db, path),
     where('plate', '==', plate.toUpperCase()),
     where('timestamp', '>=', sevenDaysAgo),
+    orderBy('timestamp', 'desc')
+  );
+  
+  try {
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as FuelRecord[];
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    return [];
+  }
+};
+
+export const getRecordsForCurrentWeek = async (): Promise<FuelRecord[]> => {
+  const path = getCollectionPath();
+  // Monday to Saturday
+  const now = new Date();
+  const start = startOfDay(startOfWeek(now, { weekStartsOn: 1 })); // Monday 00:00
+  const end = endOfDay(addDays(start, 5)); // Saturday 23:59
+  
+  const q = query(
+    collection(db, path),
+    where('timestamp', '>=', start.toISOString()),
+    where('timestamp', '<=', end.toISOString()),
     orderBy('timestamp', 'desc')
   );
   

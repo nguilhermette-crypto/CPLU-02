@@ -21,3 +21,13 @@ export interface TruckStats {
   firstMileage: number;
   recordsCount: number;
 }
+
+export type AlertStatus = 'Normal' | 'Atenção' | 'Crítico';
+
+export interface TruckAlert {
+  plate: string;
+  currentConsumption: number;
+  weeklyAvg: number;
+  variation: number;
+  status: AlertStatus;
+}

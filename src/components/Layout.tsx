@@ -8,7 +8,7 @@ import {
   Fuel,
   LogOut,
   Fingerprint,
-  LayoutDashboard
+  Activity
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { logOut, auth } from '../firebase';
@@ -18,7 +18,7 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   const userId = auth.currentUser?.uid;
   
   const navItems = [
-    { path: '/', icon: LayoutDashboard, label: 'Início' },
+    { path: '/', icon: Activity, label: 'Painel' },
     { path: '/registrar', icon: PlusCircle, label: 'Registrar' },
     { path: '/historico', icon: History, label: 'Histórico' },
     { path: '/relatorios', icon: BarChart3, label: 'Relatórios' },
