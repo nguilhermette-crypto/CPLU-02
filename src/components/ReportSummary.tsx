@@ -42,7 +42,8 @@ export const ReportSummary = () => {
         pumpOdometer: 50000 + idx * 100,
         timestamp: selectedDate.toISOString(),
         userId: 'demo',
-        shiftId: 'demo-shift'
+        shiftId: 'demo-shift',
+        shiftType: idx % 2 === 0 ? 'Manhã' : 'Tarde'
       }));
       setRecords(demoRecords);
 
@@ -63,29 +64,9 @@ export const ReportSummary = () => {
         setRecords([...newRecords].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()));
       });
 
-      // Fetch weekly alerts for real data
+      // Fetch weekly records for real data
       getRecordsForCurrentWeek().then(weeklyRecords => {
-        const truckData: Record<string, { plate: string, consumptions: number[], lastConsumption?: number }> = {};
-        weeklyRecords.forEach(record => {
-          if (!truckData[record.plate]) truckData[record.plate] = { plate: record.plate, consumptions: [] };
-          if (record.consumption !== undefined) {
-            truckData[record.plate].consumptions.push(record.consumption);
-            if (truckData[record.plate].lastConsumption === undefined) truckData[record.plate].lastConsumption = record.consumption;
-          }
-        });
-
-        const calculatedAlerts: TruckAlert[] = Object.values(truckData)
-          .filter(data => data.consumptions.length > 0 && data.lastConsumption !== undefined)
-          .map(data => {
-            const weeklyAvg = data.consumptions.reduce((a, b) => a + b, 0) / data.consumptions.length;
-            const variation = ((data.lastConsumption! - weeklyAvg) / weeklyAvg) * 100;
-            const absVariation = Math.abs(variation);
-            let status: AlertStatus = 'Normal';
-            if (absVariation > 30) status = 'Crítico';
-            else if (absVariation > 15) status = 'Atenção';
-            return { plate: data.plate, currentConsumption: data.lastConsumption!, weeklyAvg, variation, status };
-          });
-        setAlerts(calculatedAlerts);
+        // Just for logging or future use, not displaying alerts here anymore
       });
 
       return () => unsubscribe();
@@ -355,41 +336,6 @@ export const ReportSummary = () => {
         </div>
       </div>
 
-      {alerts.length > 0 && (
-        <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100">
-          <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-2">
-            <AlertTriangle size={14} className="text-orange-500" />
-            Alertas de Consumo
-          </h3>
-          <div className="space-y-3">
-            {alerts.filter(a => a.status !== 'Normal').map(alert => (
-              <div key={alert.plate} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                    alert.status === 'Crítico' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'
-                  }`}>
-                    <Truck size={16} />
-                  </div>
-                  <div>
-                    <div className="font-black text-slate-800 text-xs">{alert.plate}</div>
-                    <div className="text-[9px] font-bold text-slate-400 uppercase">{alert.status}</div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs font-black text-slate-800">{alert.currentConsumption.toFixed(2)} KM/L</div>
-                  <div className={`text-[9px] font-black flex items-center gap-1 justify-end ${
-                    alert.variation > 0 ? 'text-green-500' : 'text-red-500'
-                  }`}>
-                    {alert.variation > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                    {Math.abs(alert.variation).toFixed(1)}%
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100">
         <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-2">
           <History size={14} />
@@ -400,7 +346,7 @@ export const ReportSummary = () => {
             <div key={r.id} className="flex items-center justify-between text-sm border-b border-slate-50 pb-3 last:border-0 last:pb-0">
               <div>
                 <div className="font-black text-slate-700">{r.plate}</div>
-                <div className="text-[10px] font-bold text-slate-400">{format(parseISO(r.timestamp), 'HH:mm')} - {r.shift}</div>
+                <div className="text-[10px] font-bold text-slate-400">{format(parseISO(r.timestamp), 'HH:mm')} - {r.shiftType}</div>
               </div>
               <div className="text-right">
                 <div className="font-black text-orange-600">{r.liters}L</div>

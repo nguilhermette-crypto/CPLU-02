@@ -141,27 +141,35 @@ export const RegisterForm = () => {
       return;
     }
 
-    const nLiters = Number(liters);
-    const nPumpOdometer = Number(pumpOdometer);
-    const nTruckKm = Number(truckKm);
-    const nHorimeter = Number(horimeter);
+    const nLiters = Number(liters) || 0;
+    const nPumpOdometer = Number(pumpOdometer) || 0;
+    const nTruckKm = Number(truckKm) || 0;
+    const nHorimeter = Number(horimeter) || 0;
 
     if (nLiters <= 0) {
       setError('A quantidade de litros deve ser maior que zero.');
       return;
     }
 
-    // Pump odometer must be increasing
-    const lastPumpValue = activeShift.initialPumpOdometer; 
-    // We should ideally check the last FuelRecord's pumpOdometer if it exists, 
-    // but for now we check against initial.
-    if (nPumpOdometer <= lastPumpValue) {
-      setError(`O hodômetro da bomba deve ser maior que o inicial (${lastPumpValue}).`);
+    if (nTruckKm <= 0) {
+      setError('O KM do caminhão deve ser maior que zero.');
       return;
     }
 
-    if (nLiters > activeShift.remainingLiters) {
-      setError(`Quantidade de litros excede o disponível na bomba (${activeShift.remainingLiters.toFixed(2)}L).`);
+    if (nHorimeter < 0) {
+      setError('O horímetro não pode ser negativo.');
+      return;
+    }
+
+    // Pump odometer must be increasing
+    const lastPumpValue = activeShift.initialPumpOdometer || 0; 
+    if (nPumpOdometer <= lastPumpValue) {
+      setError(`O hodômetro da bomba deve ser maior que o inicial (${lastPumpValue.toLocaleString()}).`);
+      return;
+    }
+
+    if (nLiters > (activeShift.remainingLiters || 0)) {
+      setError(`Quantidade de litros excede o disponível na bomba (${(activeShift.remainingLiters || 0).toFixed(2)}L).`);
       return;
     }
 
@@ -169,8 +177,8 @@ export const RegisterForm = () => {
     try {
       const now = new Date();
       const newRecord: Omit<FuelRecord, 'id'> = {
-        plate: plate.toUpperCase(),
-        driverName,
+        plate: (plate || '').toUpperCase().trim(),
+        driverName: (driverName || '').trim(),
         time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
         truckKm: nTruckKm,
         horimeter: nHorimeter,
@@ -178,7 +186,8 @@ export const RegisterForm = () => {
         pumpOdometer: nPumpOdometer,
         timestamp: now.toISOString(),
         userId: auth.currentUser?.uid || 'anonymous',
-        shiftId: activeShift.id
+        shiftId: activeShift.id || '',
+        shiftType: activeShift.shiftType
       };
 
       await saveRecord(newRecord, activeShift);

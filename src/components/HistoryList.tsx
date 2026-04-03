@@ -67,7 +67,7 @@ export const HistoryList = () => {
       (r.driverId && r.driverId.toLowerCase().includes(filter.search.toLowerCase()));
     
     const matchesDate = filter.date ? isSameDay(parseISO(r.timestamp), parseISO(filter.date)) : true;
-    const matchesShift = filter.shift ? r.shift === filter.shift : true;
+    const matchesShift = filter.shift ? r.shiftType === filter.shift : true;
     
     return matchesSearch && matchesDate && matchesShift;
   });

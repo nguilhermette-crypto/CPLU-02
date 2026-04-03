@@ -208,7 +208,7 @@ export const getMorningRecordForPlateOnDay = async (plate: string, date: Date): 
     const snapshot = await getDocs(q);
     if (snapshot.empty) return null;
     const records = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as FuelRecord[];
-    const morningRecord = records.find(r => r.shift === 'Manhã');
+    const morningRecord = records.find(r => r.shiftType === 'Manhã');
     return morningRecord || null;
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, path);
@@ -265,31 +265,51 @@ export const getRecordsForCurrentWeek = async (): Promise<FuelRecord[]> => {
 export const saveRecord = async (record: Omit<FuelRecord, 'id'>, activeShift: Shift) => {
   const path = getCollectionPath();
   const shiftPath = getShiftCollectionPath();
+  
   try {
-    // 1. Calculate consumption if possible
-    let consumption: number | undefined;
-    const lastRecord = await getLastRecordForPlate(record.plate);
-    
-    if (lastRecord && record.truckKm > lastRecord.truckKm) {
-      const kmDiff = record.truckKm - lastRecord.truckKm;
-      consumption = kmDiff / record.liters;
+    // 1. Validation and Fallbacks
+    if (!record.plate || !record.liters || record.liters <= 0) {
+      throw new Error('Dados de abastecimento inválidos.');
+    }
+
+    // 2. Calculate consumption if possible
+    let consumption = 0;
+    try {
+      const lastRecord = await getLastRecordForPlate(record.plate);
+      if (lastRecord && record.truckKm > lastRecord.truckKm) {
+        const kmDiff = record.truckKm - lastRecord.truckKm;
+        consumption = Number((kmDiff / record.liters).toFixed(2));
+      }
+    } catch (err) {
+      console.error('Erro ao calcular consumo, usando 0:', err);
+      consumption = 0;
     }
 
     const dataToSave = {
-      ...record,
-      consumption,
-      userId: auth.currentUser?.uid
+      plate: record.plate || '',
+      driverName: record.driverName || 'N/A',
+      time: record.time || '',
+      truckKm: Number(record.truckKm) || 0,
+      horimeter: Number(record.horimeter) || 0,
+      liters: Number(record.liters) || 0,
+      pumpOdometer: Number(record.pumpOdometer) || 0,
+      timestamp: record.timestamp || new Date().toISOString(),
+      shiftId: record.shiftId || '',
+      shiftType: record.shiftType || 'Manhã',
+      consumption: consumption || 0,
+      userId: auth.currentUser?.uid || 'anonymous'
     };
 
-    // 2. Save the fuel record
+    // 3. Save the fuel record
     await addDoc(collection(db, path), dataToSave);
 
-    // 3. Update remaining liters in the shift
-    const newRemaining = activeShift.remainingLiters - record.liters;
+    // 4. Update remaining liters in the shift
+    const newRemaining = Math.max(0, (activeShift.remainingLiters || 0) - (record.liters || 0));
     await updateDoc(doc(db, shiftPath, activeShift.id), {
       remainingLiters: newRemaining
     });
   } catch (error) {
+    console.error('Erro detalhado em saveRecord:', error);
     handleFirestoreError(error, OperationType.CREATE, path);
   }
 };

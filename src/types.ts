@@ -10,6 +10,7 @@ export interface FuelRecord {
   timestamp: string;
   userId: string;
   shiftId: string;
+  shiftType: 'Manhã' | 'Tarde';
   consumption?: number;
 }
 

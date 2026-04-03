@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, MessageCircle, Sparkles, Send, HelpCircle, Info } from 'lucide-react';
+import { X, MessageCircle, Sparkles, Send, HelpCircle, Info, MessageSquare } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 
 interface Message {
@@ -10,43 +10,39 @@ interface Message {
   timestamp: Date;
 }
 
-// Improved default avatar using a more modern style
-const DEFAULT_LUMI_AVATAR = "https://api.dicebear.com/7.x/bottts-neutral/svg?seed=Lumi&backgroundColor=f97316&eyes=eyes10&mouth=smile01";
-
 const QUICK_OPTIONS = [
-  { id: 'cancelled', label: 'Por que foi cancelada?', response: 'Um registro pode ser cancelado se o KM atual for menor que o anterior ou se o consumo estiver muito fora da média e você optar por não confirmar.' },
-  { id: 'error', label: 'Erro no abastecimento', response: 'Verifique KM, litros e placa. O sistema bloqueia se o KM atual for menor que o último registrado.' },
-  { id: 'pdf', label: 'Gerar PDF', response: "Vá até a tela de relatório e clique em 'Gerar PDF'." },
-  { id: 'critical', label: 'Caminhão crítico ou normal', response: 'Um caminhão é crítico quando o consumo está fora da média semanal.' },
-  { id: 'consumption', label: 'Consumo', response: 'O cálculo é feito com base no KM rodado dividido pelos litros abastecidos.' },
+  { id: 'error', label: 'Erro no abastecimento', response: 'Verifique se o KM atual é maior que o anterior e se todos os campos obrigatórios estão preenchidos. O sistema bloqueia valores inconsistentes para sua segurança! 🛑' },
+  { id: 'pdf', label: 'Gerar PDF', response: 'Para gerar o relatório, vá na aba "Relatórios" e clique no botão "GERAR RELATÓRIO PDF". O arquivo será baixado automaticamente. 📄' },
+  { id: 'critical', label: 'Caminhão crítico', response: 'Um caminhão entra em estado crítico quando seu consumo varia mais de 30% em relação à média semanal. Fique atento a esses veículos! ⚠️' },
+  { id: 'consumption', label: 'Consumo', response: 'O consumo é calculado dividindo a diferença de KM pelo total de litros abastecidos. É o melhor indicador de eficiência da frota! ⛽' },
+  { id: 'others', label: 'Outras dúvidas', response: 'Estou aqui para ajudar! Você pode me perguntar sobre turnos, registros ou como usar o painel. O que mais você gostaria de saber? 😊' },
 ];
 
 export const LumiChat = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
-  const [showOptions, setShowOptions] = useState(true);
-  const [lumiAvatar, setLumiAvatar] = useState(DEFAULT_LUMI_AVATAR);
+  const [showOptions, setShowOptions] = useState(false);
   const [inputValue, setInputValue] = useState('');
+  const [lumiImage, setLumiImage] = useState<string | null>(null);
+  const [systemAlert, setSystemAlert] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Image generation logic
   useEffect(() => {
-    let isMounted = true;
-    const generateAvatar = async () => {
+    const generateLumiImage = async () => {
       try {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) return;
 
         const ai = new GoogleGenAI({ apiKey });
-        // Refined prompt for a "cooler" look - modern 3D-style 2D illustration
-        const prompt = `High-quality digital character portrait of a friendly female assistant named Lumi. 
-        Style: Modern 3D-style 2D vector illustration, clean lines, vibrant colors, professional but approachable. 
-        Features: Brown hair styled professionally, warm friendly smile, large expressive eyes, wearing a sleek modern headset. 
-        Clothing: Urban cleaning worker uniform, bright orange high-visibility reflective vest over a white shirt. 
-        Details: Small white "CPLU" logo on the vest. 
-        Lighting: Soft studio lighting, clean neutral light grey background. 
-        Colors: Predominant vibrant orange and secondary clean white. NO BLUE. 
-        Mood: Helpful, intelligent, and energetic.`;
+        const prompt = `Modern 2D corporate illustration of a friendly and professional female character named Lumi. 
+        She is wearing a full safety uniform: orange and white reflective vest, safety boots, safety belt, and a safety helmet. 
+        The style is clean, minimalist, and corporate. 
+        Expression: light and friendly. 
+        Colors: predominantly orange and white (CPLU brand colors). 
+        Background: transparent or neutral light gray. 
+        Full body or upper body shot.`;
 
         const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash-image',
@@ -60,28 +56,30 @@ export const LumiChat = () => {
           }
         });
 
-        if (isMounted && response.candidates?.[0]?.content?.parts) {
-          const parts = response.candidates[0].content.parts;
-          for (const part of parts) {
-            if (part.inlineData) {
-              setLumiAvatar(`data:image/png;base64,${part.inlineData.data}`);
-              break;
-            }
-          }
+        const part = response.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+        if (part?.inlineData) {
+          setLumiImage(`data:image/png;base64,${part.inlineData.data}`);
         }
       } catch (error) {
-        console.error("Failed to generate custom avatar:", error);
-        // Fallback to a nice dicebear avatar if generation fails
-        if (isMounted) {
-          setLumiAvatar(DEFAULT_LUMI_AVATAR);
-        }
+        console.error("Failed to generate Lumi image:", error);
       }
     };
 
-    generateAvatar();
-    return () => { isMounted = false; };
+    generateLumiImage();
   }, []);
 
+  // 20-minute alert logic
+  useEffect(() => {
+    const alertInterval = setInterval(() => {
+      setSystemAlert("Atenção! Confira os dados antes de salvar. 📝");
+      // Hide after 8 seconds
+      setTimeout(() => setSystemAlert(null), 8000);
+    }, 20 * 60 * 1000); // 20 minutes
+
+    return () => clearInterval(alertInterval);
+  }, []);
+
+  // Scroll to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -92,26 +90,24 @@ export const LumiChat = () => {
 
   useEffect(() => {
     if (isOpen && messages.length === 0) {
-      setIsTyping(true);
-      setTimeout(() => {
-        setMessages([
-          {
-            id: '1',
-            text: 'Olá! Sou a Lumi, sua assistente CPLU. Como posso facilitar seu trabalho hoje? 🚛✨',
-            sender: 'lumi',
-            timestamp: new Date(),
-          },
-        ]);
-        setIsTyping(false);
-        setShowOptions(true);
-      }, 1200);
+      setMessages([
+        {
+          id: '1',
+          text: 'Olá! Sou a Lumi, sua assistente CPLU. Como posso facilitar seu trabalho hoje? 🚛✨',
+          sender: 'lumi',
+          timestamp: new Date(),
+        },
+      ]);
     }
   }, [isOpen, messages.length]);
 
-  const handleSendMessage = (text: string) => {
+  const handleSendMessage = (text: string, responseText?: string) => {
     if (!text.trim()) return;
 
+    // Clear previous messages to keep it clean as requested ("Mostrar apenas a pergunta selecionada")
+    setMessages([]);
     setShowOptions(false);
+    
     const userMessage: Message = {
       id: Date.now().toString(),
       text,
@@ -119,26 +115,27 @@ export const LumiChat = () => {
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages([userMessage]);
     setIsTyping(true);
     setInputValue('');
 
-    const delay = 1500 + Math.random() * 1000;
+    // 2-3 seconds delay as requested
+    const delay = 2500; 
 
     setTimeout(() => {
-      let response = 'Entendi! Ainda estou aprendendo sobre alguns detalhes, mas posso te ajudar com as dúvidas mais comuns. O que acha de usar um dos botões abaixo?';
+      let response = responseText || 'Entendi! Ainda estou aprendendo sobre alguns detalhes, mas posso te ajudar com as dúvidas mais comuns. O que acha de usar um dos botões abaixo?';
       
-      const lowerText = text.toLowerCase();
-      if (lowerText.includes('cancel') || lowerText.includes('rejeit')) {
-        response = 'Um registro pode ser cancelado se o KM atual for menor que o anterior ou se o consumo estiver muito fora da média e você optar por não confirmar. Segurança em primeiro lugar! 🛡️';
-      } else if (lowerText.includes('erro') || lowerText.includes('problema')) {
-        response = 'Ops! Verifique se a placa, o KM e os litros estão corretos. O sistema bloqueia automaticamente se o KM atual for menor que o último registrado para evitar erros. 🛑';
-      } else if (lowerText.includes('pdf') || lowerText.includes('relat')) {
-        response = "Claro! Para gerar o relatório, vá até a aba 'Relatórios' no menu inferior e clique no botão laranja 'GERAR RELATÓRIO PDF'. Fácil, né? 📄✅";
-      } else if (lowerText.includes('consumo')) {
-        response = 'O cálculo do consumo é simples: pegamos os KM rodados e dividimos pelos litros abastecidos. Assim sabemos se o caminhão está operando com eficiência! ⛽📊';
-      } else if (lowerText.includes('oi') || lowerText.includes('ola') || lowerText.includes('olá')) {
-        response = 'Oi! Tudo bem por aí? Estou aqui para ajudar com qualquer dúvida sobre o sistema CPLU. 😊';
+      if (!responseText) {
+        const lowerText = text.toLowerCase();
+        if (lowerText.includes('erro') || lowerText.includes('problema')) {
+          response = QUICK_OPTIONS.find(o => o.id === 'error')?.response || response;
+        } else if (lowerText.includes('pdf') || lowerText.includes('relat')) {
+          response = QUICK_OPTIONS.find(o => o.id === 'pdf')?.response || response;
+        } else if (lowerText.includes('consumo')) {
+          response = QUICK_OPTIONS.find(o => o.id === 'consumption')?.response || response;
+        } else if (lowerText.includes('oi') || lowerText.includes('ola') || lowerText.includes('olá')) {
+          response = 'Oi! Tudo bem por aí? Estou aqui para ajudar com qualquer dúvida sobre o sistema CPLU. 😊';
+        }
       }
 
       const lumiMessage: Message = {
@@ -147,34 +144,62 @@ export const LumiChat = () => {
         sender: 'lumi',
         timestamp: new Date(),
       };
+      
       setMessages(prev => [...prev, lumiMessage]);
       setIsTyping(false);
-      setTimeout(() => setShowOptions(true), 500);
+      
+      // DO NOT show options automatically after response
     }, delay);
   };
 
   const handleOptionClick = (option: typeof QUICK_OPTIONS[0]) => {
-    handleSendMessage(option.label);
+    handleSendMessage(option.label, option.response);
   };
+
+  const LumiAvatar = ({ size = 40 }: { size?: number }) => (
+    <div className="relative flex items-center justify-center overflow-hidden rounded-full bg-orange-50 border border-orange-100" style={{ width: size, height: size }}>
+      {lumiImage ? (
+        <img src={lumiImage} alt="Lumi" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center bg-orange-100 text-orange-500">
+          <MessageCircle size={size * 0.6} />
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <>
+      {/* Floating Alert Bubble (from LumiAssistant logic) */}
+      <AnimatePresence>
+        {systemAlert && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, x: 20, y: 20 }}
+            animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, x: 20, y: 20 }}
+            className="fixed bottom-44 right-4 z-[110] p-4 bg-orange-500 text-white rounded-[24px] rounded-br-none shadow-2xl border border-orange-400 max-w-[200px] pointer-events-auto"
+          >
+            <button 
+              onClick={() => setSystemAlert(null)}
+              className="absolute -top-2 -right-2 p-1 bg-orange-600 text-white rounded-full hover:bg-orange-700 transition-colors"
+            >
+              <X size={10} />
+            </button>
+            <p className="text-[11px] font-bold leading-relaxed">
+              {systemAlert}
+            </p>
+            <div className="absolute -bottom-2 right-0 w-4 h-4 bg-orange-500 border-r border-b border-orange-400 transform rotate-45" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-28 right-4 z-[100] w-16 h-16 rounded-full shadow-2xl shadow-orange-300/40 overflow-hidden border-4 border-white active:scale-90 transition-all hover:scale-110 bg-white group"
+        className="fixed bottom-28 right-4 z-[100] w-16 h-16 rounded-full shadow-2xl shadow-orange-300/40 flex items-center justify-center border-4 border-white active:scale-90 transition-all hover:scale-110 bg-white group"
       >
         <div className="absolute inset-0 bg-orange-500 opacity-0 group-hover:opacity-10 transition-opacity" />
-        <img 
-          src={lumiAvatar} 
-          alt="Lumi" 
-          className="w-full h-full object-cover"
-          referrerPolicy="no-referrer"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.src = DEFAULT_LUMI_AVATAR;
-          }}
-        />
+        <LumiAvatar size={48} />
         {!isOpen && (
           <div className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 rounded-full border-2 border-white flex items-center justify-center animate-bounce">
             <Sparkles size={10} className="text-white" />
@@ -189,42 +214,37 @@ export const LumiChat = () => {
             initial={{ opacity: 0, y: 40, scale: 0.9, transformOrigin: 'bottom right' }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 40, scale: 0.9 }}
-            className="fixed bottom-48 right-4 z-[100] w-[350px] max-w-[calc(100vw-32px)] h-[550px] bg-white rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden border border-slate-100"
+            className="fixed bottom-48 right-4 z-[100] w-[350px] max-w-[calc(100vw-32px)] max-h-[calc(100vh-220px)] h-[550px] bg-white rounded-[32px] shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden border border-slate-100"
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-5 flex items-center justify-between shadow-lg">
+            <div className="bg-white p-5 flex items-center justify-between border-b border-slate-50">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl overflow-hidden bg-white/20 backdrop-blur-sm border border-white/30 p-0.5">
-                  <img 
-                    src={lumiAvatar} 
-                    alt="Lumi" 
-                    className="w-full h-full object-cover rounded-xl"
-                    referrerPolicy="no-referrer"
-                  />
+                <div className="w-10 h-10 rounded-2xl overflow-hidden bg-orange-50 flex items-center justify-center border border-orange-100">
+                  <LumiAvatar size={32} />
                 </div>
                 <div>
-                  <h3 className="text-white font-black text-sm tracking-tight">Lumi CPLU</h3>
+                  <h3 className="text-slate-800 font-black text-sm tracking-tight">Lumi CPLU</h3>
                   <div className="flex items-center gap-1.5">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.6)]" />
-                    <span className="text-orange-100 text-[10px] font-black uppercase tracking-widest">Sempre Online</span>
+                    <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Online</span>
                   </div>
                 </div>
               </div>
               <button 
                 onClick={() => setIsOpen(false)}
-                className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+                className="p-2 text-slate-300 hover:text-slate-500 hover:bg-slate-50 rounded-xl transition-all"
               >
                 <X size={20} />
               </button>
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-5 bg-slate-50/50">
+            <div className="flex-1 overflow-y-auto p-5 space-y-5 bg-white custom-scrollbar">
               {messages.map((msg) => (
                 <div key={msg.id} className={`flex items-start gap-2.5 ${msg.sender === 'lumi' ? 'justify-start' : 'justify-end'}`}>
                   {msg.sender === 'lumi' && (
-                    <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0 mt-1 shadow-sm border border-slate-100">
-                      <img src={lumiAvatar} alt="L" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0 mt-1 bg-orange-50 flex items-center justify-center border border-orange-100">
+                      <LumiAvatar size={24} />
                     </div>
                   )}
                   <motion.div
@@ -232,7 +252,7 @@ export const LumiChat = () => {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     className={`max-w-[85%] p-4 rounded-[24px] text-[13px] leading-relaxed font-bold shadow-sm ${
                       msg.sender === 'lumi'
-                        ? 'bg-white text-slate-800 rounded-tl-none border border-slate-100'
+                        ? 'bg-slate-50 text-slate-800 rounded-tl-none border border-slate-100'
                         : 'bg-orange-500 text-white rounded-tr-none shadow-orange-100'
                     }`}
                   >
@@ -243,17 +263,20 @@ export const LumiChat = () => {
 
               {isTyping && (
                 <div className="flex items-start gap-2.5 justify-start">
-                  <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0 mt-1 shadow-sm border border-slate-100">
-                    <img src={lumiAvatar} alt="L" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <div className="w-8 h-8 rounded-xl overflow-hidden flex-shrink-0 mt-1 bg-orange-50 flex items-center justify-center border border-orange-100">
+                    <LumiAvatar size={24} />
                   </div>
                   <motion.div
                     initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-white border border-slate-100 p-4 rounded-[24px] rounded-tl-none flex gap-1.5"
+                    className="bg-slate-50 border border-slate-100 p-4 rounded-[24px] rounded-tl-none flex flex-col gap-1"
                   >
-                    <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 0.8 }} className="w-1.5 h-1.5 bg-orange-500/40 rounded-full" />
-                    <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.2 }} className="w-1.5 h-1.5 bg-orange-500/40 rounded-full" />
-                    <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.4 }} className="w-1.5 h-1.5 bg-orange-500/40 rounded-full" />
+                    <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Lumi está digitando...</span>
+                    <div className="flex gap-1.5">
+                      <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 0.8 }} className="w-1.5 h-1.5 bg-orange-500/40 rounded-full" />
+                      <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.2 }} className="w-1.5 h-1.5 bg-orange-500/40 rounded-full" />
+                      <motion.div animate={{ scale: [1, 1.5, 1] }} transition={{ repeat: Infinity, duration: 0.8, delay: 0.4 }} className="w-1.5 h-1.5 bg-orange-500/40 rounded-full" />
+                    </div>
                   </motion.div>
                 </div>
               )}
@@ -261,25 +284,40 @@ export const LumiChat = () => {
             </div>
 
             {/* Input Area */}
-            <div className="p-5 bg-white border-t border-slate-100 space-y-4">
+            <div className="p-5 bg-white border-t border-slate-50 space-y-4">
               <AnimatePresence>
                 {showOptions && !isTyping && (
                   <motion.div 
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
-                    className="flex flex-wrap gap-2"
+                    className="flex flex-col gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-100 relative"
                   >
-                    {QUICK_OPTIONS.map((option) => (
-                      <button
-                        key={option.id}
-                        onClick={() => handleOptionClick(option)}
-                        className="px-4 py-2 bg-orange-50 hover:bg-orange-100 text-orange-600 text-[11px] font-black rounded-full border border-orange-100 transition-all active:scale-[0.95] flex items-center gap-1.5"
-                      >
-                        <HelpCircle size={12} />
-                        {option.label}
-                      </button>
-                    ))}
+                    <button 
+                      onClick={() => setShowOptions(false)}
+                      className="absolute top-2 right-2 p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      <X size={14} />
+                    </button>
+                    <div className="flex items-center gap-2 mb-1 px-1">
+                      <MessageSquare size={14} className="text-orange-500" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sugestões</span>
+                    </div>
+                    <div className="max-h-[150px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                      {QUICK_OPTIONS.map((option) => (
+                        <button
+                          key={option.id}
+                          onClick={() => handleOptionClick(option)}
+                          className="w-full px-4 py-3 bg-white hover:bg-orange-50 text-slate-700 hover:text-orange-600 text-[11px] font-black rounded-xl border border-slate-100 hover:border-orange-100 transition-all active:scale-[0.98] flex items-center justify-between group"
+                        >
+                          <div className="flex items-center gap-2">
+                            <HelpCircle size={14} className="text-slate-300 group-hover:text-orange-400" />
+                            {option.label}
+                          </div>
+                          <Sparkles size={12} className="text-slate-200 group-hover:text-orange-300" />
+                        </button>
+                      ))}
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -290,6 +328,8 @@ export const LumiChat = () => {
                     type="text"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
+                    onFocus={() => setShowOptions(true)}
+                    onClick={() => setShowOptions(true)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSendMessage(inputValue)}
                     placeholder="Como posso ajudar?"
                     className="w-full bg-slate-50 border-2 border-transparent rounded-[20px] px-5 py-3.5 text-sm font-bold text-slate-700 focus:bg-white focus:border-orange-500 outline-none transition-all placeholder:text-slate-300"
@@ -302,13 +342,6 @@ export const LumiChat = () => {
                 >
                   <Send size={20} />
                 </button>
-              </div>
-
-              <div className="flex items-center justify-center gap-1.5 opacity-40">
-                <Info size={10} className="text-slate-400" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                  Lumi Assistente Virtual CPLU
-                </span>
               </div>
             </div>
           </motion.div>

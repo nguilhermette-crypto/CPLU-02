@@ -15,7 +15,6 @@ import {
 import { cn } from '../lib/utils';
 import { logOut, auth } from '../firebase';
 import { LumiChat } from './LumiChat';
-import { LumiAssistant } from './LumiAssistant';
 import { subscribeToActiveShift, closeShift } from '../services/storage';
 import { Shift } from '../types';
 
@@ -136,7 +135,6 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
       </nav>
 
       <LumiChat />
-      <LumiAssistant activeShift={activeShift} />
     </div>
   );
 };

@@ -146,7 +146,7 @@ export default function App() {
           <Layout>
             <Suspense fallback={<PageLoader />}>
               <Routes>
-                <Route path="/" element={<AlertsPanel />} />
+                <Route path="/" element={<HistoryList />} />
                 <Route path="/registrar" element={<RegisterForm />} />
                 <Route path="/historico" element={<HistoryList />} />
                 <Route path="/relatorios" element={<ReportSummary />} />
