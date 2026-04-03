@@ -14,8 +14,9 @@ import {
   endAt
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
-import { FuelRecord } from '../types';
-import { startOfDay, endOfDay, subDays, startOfWeek, endOfWeek, isWithinInterval, addDays } from 'date-fns';
+import { Shift, FuelRecord } from '../types';
+import { startOfDay, endOfDay, subDays, startOfWeek, endOfWeek, addDays } from 'date-fns';
+import { updateDoc } from 'firebase/firestore';
 
 export enum OperationType {
   CREATE = 'create',
@@ -72,6 +73,57 @@ const getCollectionPath = () => {
   const userId = auth.currentUser?.uid;
   if (!userId) throw new Error('Usuário não autenticado');
   return `users/${userId}/abastecimentos`;
+};
+
+const getShiftCollectionPath = () => {
+  const userId = auth.currentUser?.uid;
+  if (!userId) throw new Error('Usuário não autenticado');
+  return `users/${userId}/turnos`;
+};
+
+export const subscribeToActiveShift = (onUpdate: (shift: Shift | null) => void) => {
+  const path = getShiftCollectionPath();
+  const q = query(
+    collection(db, path),
+    where('status', '==', 'Aberto'),
+    orderBy('timestamp', 'desc'),
+    limit(1)
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    if (snapshot.empty) {
+      onUpdate(null);
+    } else {
+      onUpdate({ ...snapshot.docs[0].data(), id: snapshot.docs[0].id } as Shift);
+    }
+  }, (error) => {
+    handleFirestoreError(error, OperationType.LIST, path);
+  });
+};
+
+export const startShift = async (shift: Omit<Shift, 'id' | 'status' | 'timestamp' | 'userId' | 'remainingLiters'>) => {
+  const path = getShiftCollectionPath();
+  try {
+    const newShift: Omit<Shift, 'id'> = {
+      ...shift,
+      status: 'Aberto',
+      remainingLiters: shift.initialLiters,
+      timestamp: new Date().toISOString(),
+      userId: auth.currentUser?.uid || ''
+    };
+    await addDoc(collection(db, path), newShift);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+};
+
+export const closeShift = async (shiftId: string) => {
+  const path = getShiftCollectionPath();
+  try {
+    await updateDoc(doc(db, path, shiftId), { status: 'Fechado' });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `${path}/${shiftId}`);
+  }
 };
 
 export const subscribeToRecords = (onUpdate: (records: FuelRecord[]) => void, limitCount?: number) => {
@@ -202,20 +254,23 @@ export const getRecordsForCurrentWeek = async (): Promise<FuelRecord[]> => {
   }
 };
 
-export const saveRecord = async (record: Omit<FuelRecord, 'id'>) => {
+export const saveRecord = async (record: Omit<FuelRecord, 'id'>, activeShift: Shift) => {
   const path = getCollectionPath();
+  const shiftPath = getShiftCollectionPath();
   try {
     const dataToSave = {
       ...record,
       userId: auth.currentUser?.uid
     };
 
-    // Remove undefined fields to prevent Firestore errors
-    const cleanData = Object.fromEntries(
-      Object.entries(dataToSave).filter(([_, value]) => value !== undefined)
-    );
+    // 1. Save the fuel record
+    await addDoc(collection(db, path), dataToSave);
 
-    await addDoc(collection(db, path), cleanData);
+    // 2. Update remaining liters in the shift
+    const newRemaining = activeShift.remainingLiters - record.liters;
+    await updateDoc(doc(db, shiftPath, activeShift.id), {
+      remainingLiters: newRemaining
+    });
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);
   }

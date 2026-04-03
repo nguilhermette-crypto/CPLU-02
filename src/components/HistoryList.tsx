@@ -42,13 +42,11 @@ export const HistoryList = () => {
     ? records.filter(r => r.plate === selectedTruck)
     : [];
 
-  const truckAvgConsumption = truckRecords.length > 0
-    ? truckRecords.filter(r => r.consumption !== undefined).reduce((acc, r) => acc + (r.consumption || 0), 0) / truckRecords.filter(r => r.consumption !== undefined).length
+  const truckLastKm = truckRecords.length > 0
+    ? Math.max(...truckRecords.map(r => r.truckKm || 0))
     : 0;
 
-  const truckLastKm = truckRecords.length > 0
-    ? Math.max(...truckRecords.map(r => r.mileage))
-    : 0;
+  const truckTotalLiters = truckRecords.reduce((acc, r) => acc + (r.liters || 0), 0);
 
   const handleDelete = async (id: string) => {
     setIsDeleting(true);
@@ -116,103 +114,99 @@ export const HistoryList = () => {
         </div>
       </div>
 
-      <div className="space-y-3">
-        {isLoading && records.length === 0 ? (
-          <div className="text-center py-16 text-slate-300">
-            <Loader2 size={48} className="mx-auto mb-4 animate-spin opacity-20" />
-            <p className="font-bold uppercase tracking-widest text-[10px]">Carregando histórico...</p>
-          </div>
-        ) : filteredRecords.length === 0 ? (
-          <div className="text-center py-16 text-slate-300">
-            <History size={64} className="mx-auto mb-4 opacity-10" />
-            <p className="font-bold uppercase tracking-widest text-xs">Nenhum registro</p>
-          </div>
-        ) : (
-          <>
-            {filteredRecords.map((record) => (
-              <div key={record.id} className="bg-white p-5 rounded-[28px] shadow-sm border border-slate-50 flex flex-col gap-3 active:bg-orange-50 transition-all group">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500 group-active:bg-white transition-colors">
-                      <Truck size={28} />
-                    </div>
-                    <div>
+      <div className="bg-white rounded-[28px] shadow-sm border border-slate-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100">
+                <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Placa</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Motorista</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Hora</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">KM Caminhão</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Horímetro</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Litros</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Bomba</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {isLoading && records.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="text-center py-16 text-slate-300">
+                    <Loader2 size={48} className="mx-auto mb-4 animate-spin opacity-20" />
+                    <p className="font-bold uppercase tracking-widest text-[10px]">Carregando histórico...</p>
+                  </td>
+                </tr>
+              ) : filteredRecords.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="text-center py-16 text-slate-300">
+                    <History size={64} className="mx-auto mb-4 opacity-10" />
+                    <p className="font-bold uppercase tracking-widest text-xs">Nenhum registro</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredRecords.map((record) => (
+                  <tr key={record.id} className="hover:bg-slate-50 transition-colors group">
+                    <td className="px-6 py-4">
                       <button 
                         onClick={() => setSelectedTruck(record.plate)}
-                        className="font-black text-slate-800 text-lg tracking-tight hover:text-orange-500 transition-colors"
+                        className="font-black text-slate-800 hover:text-orange-500 transition-colors"
                       >
                         {record.plate}
                       </button>
-                      <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
-                          <User size={12} />
-                          <span>{record.driverName} {record.driverId ? `(${record.driverId})` : ''}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-orange-500">
-                          <Calendar size={10} />
-                          <span>{record.shift}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xl font-black text-orange-600 leading-none">{record.amount}L</div>
-                    <div className="text-[10px] font-black text-slate-400 uppercase mt-1.5 tracking-wider">{record.fuelType}</div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between pt-3 border-t border-slate-50">
-                  <div className="flex flex-col">
-                    <div className="text-[10px] font-bold text-slate-300">
-                      {format(parseISO(record.timestamp), 'dd/MM/yyyy HH:mm')}
-                    </div>
-                    <div className="text-[11px] font-black text-slate-800">{record.mileage.toLocaleString()} KM</div>
-                    <div className="flex gap-2 mt-1">
-                      {record.mileageDiff !== undefined && (
-                        <div className="text-[9px] font-black bg-slate-100 px-2 py-0.5 rounded-md text-slate-500 uppercase tracking-tighter">
-                          Δ KM: {record.mileageDiff.toLocaleString()}
-                        </div>
-                      )}
-                      {record.horimeterDiff !== undefined && (
-                        <div className="text-[9px] font-black bg-orange-50 px-2 py-0.5 rounded-md text-orange-600 uppercase tracking-tighter">
-                          Δ HR: {record.horimeterDiff.toFixed(1)}
-                        </div>
-                      )}
-                    </div>
-                    {record.consumption && (
-                      <div className="text-[10px] font-black text-green-600 uppercase tracking-tighter">
-                        {record.consumption.toFixed(2)} KM/L
-                      </div>
-                    )}
-                  </div>
-                  <button 
-                    onClick={() => setDeletingId(record.id)}
-                    className="w-10 h-10 bg-red-50 text-red-500 rounded-xl flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </div>
-            ))}
-            
-            {records.length >= limitCount && (
-              <button 
-                onClick={() => setLimitCount(prev => prev + 20)}
-                className="w-full py-4 bg-white border-2 border-slate-50 rounded-2xl text-slate-400 font-black text-[11px] uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
-              >
-                {isLoading ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <>
-                    <ChevronDown size={16} />
-                    Carregar Mais
-                  </>
-                )}
-              </button>
-            )}
-          </>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-bold text-slate-600">{record.driverName}</div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="text-xs font-bold text-slate-400">{record.time || format(parseISO(record.timestamp), 'HH:mm')}</div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="text-sm font-black text-slate-700">{(record.truckKm || 0).toLocaleString()}</div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="text-sm font-bold text-slate-500">{(record.horimeter || 0).toFixed(1)}</div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="text-sm font-black text-orange-600">{record.liters}L</div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="text-sm font-bold text-slate-800">{(record.pumpOdometer || 0).toLocaleString()}</div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button 
+                        onClick={() => setDeletingId(record.id)}
+                        className="p-2 text-slate-300 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {records.length >= limitCount && (
+          <div className="p-4 bg-slate-50 border-t border-slate-100">
+            <button 
+              onClick={() => setLimitCount(prev => prev + 20)}
+              className="w-full py-3 bg-white border border-slate-200 rounded-xl text-slate-400 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <>
+                  <ChevronDown size={14} />
+                  Carregar Mais
+                </>
+              )}
+            </button>
+          </div>
         )}
       </div>
+
 
       <AnimatePresence>
         {selectedTruck && (
@@ -238,8 +232,8 @@ export const HistoryList = () => {
 
               <div className="p-6 grid grid-cols-2 gap-4 border-b border-slate-100">
                 <div className="bg-slate-50 p-4 rounded-2xl">
-                  <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Consumo Médio</div>
-                  <div className="text-lg font-black text-green-600">{truckAvgConsumption > 0 ? `${truckAvgConsumption.toFixed(2)} KM/L` : '---'}</div>
+                  <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Abastecido</div>
+                  <div className="text-lg font-black text-orange-600">{truckTotalLiters.toFixed(2)} L</div>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-2xl">
                   <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Último KM</div>
@@ -252,17 +246,14 @@ export const HistoryList = () => {
                   <div key={r.id} className="border-l-4 border-orange-500 pl-4 py-1">
                     <div className="flex justify-between items-start">
                       <div>
-                        <div className="text-xs font-black text-slate-700">{format(parseISO(r.timestamp), 'dd/MM/yyyy HH:mm')}</div>
-                        <div className="text-[10px] font-bold text-slate-400">{r.driverName} • {r.shift}</div>
+                        <div className="text-xs font-black text-slate-700">{format(parseISO(r.timestamp), 'dd/MM/yyyy')} {r.time}</div>
+                        <div className="text-[10px] font-bold text-slate-400">{r.driverName}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-black text-orange-600">{r.amount}L</div>
-                        <div className="text-[9px] font-bold text-slate-400">{r.mileage.toLocaleString()} KM</div>
+                        <div className="text-sm font-black text-orange-600">{r.liters}L</div>
+                        <div className="text-[9px] font-bold text-slate-400">{r.truckKm.toLocaleString()} KM</div>
                       </div>
                     </div>
-                    {r.consumption && (
-                      <div className="text-[10px] font-black text-green-600 mt-1">{r.consumption.toFixed(2)} KM/L</div>
-                    )}
                   </div>
                 ))}
               </div>

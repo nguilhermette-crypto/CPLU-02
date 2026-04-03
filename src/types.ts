@@ -2,22 +2,27 @@ export interface FuelRecord {
   id: string;
   plate: string;
   driverName: string;
-  driverId?: string;
-  shift: 'Manhã' | 'Tarde';
-  mileage: number; // This remains as the "current/final" mileage for backward compatibility
-  mileageStart?: number;
-  mileageEnd?: number;
-  horimeterStart?: number;
-  horimeterEnd?: number;
-  mileageDiff?: number;
-  horimeterDiff?: number;
-  amount: number;
-  fuelType: string;
+  time: string;
+  truckKm: number;
+  horimeter: number;
+  liters: number;
+  pumpOdometer: number;
   timestamp: string;
-  consumption?: number;
-  observation?: string;
   userId: string;
-  responsibleName: string;
+  shiftId: string;
+}
+
+export interface Shift {
+  id: string;
+  date: string;
+  time: string;
+  shiftType: 'Manhã' | 'Tarde';
+  initialPumpOdometer: number;
+  initialLiters: number;
+  remainingLiters: number;
+  status: 'Aberto' | 'Fechado';
+  timestamp: string;
+  userId: string;
 }
 
 export interface TruckStats {

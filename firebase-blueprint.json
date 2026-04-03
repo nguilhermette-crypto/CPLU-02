@@ -8,33 +8,44 @@
         "id": { "type": "string", "description": "ID único do registro" },
         "plate": { "type": "string", "description": "Placa do veículo" },
         "driverName": { "type": "string", "description": "Nome do motorista" },
-        "driverId": { "type": "string", "description": "Matrícula do motorista" },
-        "shift": { "type": "string", "enum": ["Manhã", "Tarde"], "description": "Turno do abastecimento" },
-        "mileage": { "type": "number", "description": "Quilometragem no momento do abastecimento" },
-        "mileageStart": { "type": "number", "description": "Hodômetro inicial do turno" },
-        "mileageEnd": { "type": "number", "description": "Hodômetro final do turno" },
-        "horimeterStart": { "type": "number", "description": "Horímetro inicial do turno" },
-        "horimeterEnd": { "type": "number", "description": "Horímetro final do turno" },
-        "mileageDiff": { "type": "number", "description": "Diferença do hodômetro (final - inicial)" },
-        "horimeterDiff": { "type": "number", "description": "Diferença do horímetro (final - inicial)" },
-        "amount": { "type": "number", "description": "Quantidade de litros abastecidos" },
-        "fuelType": { "type": "string", "description": "Tipo de combustível" },
+        "time": { "type": "string", "description": "Hora do abastecimento" },
+        "truckKm": { "type": "number", "description": "KM atual do caminhão" },
+        "horimeter": { "type": "number", "description": "Horímetro do caminhão" },
+        "liters": { "type": "number", "description": "Quantidade de litros abastecidos" },
+        "pumpOdometer": { "type": "number", "description": "Hodômetro da bomba após abastecimento" },
         "timestamp": { "type": "string", "format": "date-time", "description": "Data e hora do registro" },
-        "consumption": {
-          "type": "number",
-          "description": "Consumo calculado (KM/L). Calculado no turno da Tarde usando (KM Tarde - KM Manhã) / Litros Manhã."
-        },
-        "observation": { "type": "string", "description": "Observações adicionais" },
         "userId": { "type": "string", "description": "UID do usuário que criou o registro" },
-        "responsibleName": { "type": "string", "description": "Nome do responsável pelo abastecimento" }
+        "shiftId": { "type": "string", "description": "ID do turno vinculado" }
       },
-      "required": ["id", "plate", "driverName", "shift", "mileage", "amount", "fuelType", "timestamp", "userId", "responsibleName"]
+      "required": ["id", "plate", "driverName", "time", "truckKm", "horimeter", "liters", "pumpOdometer", "timestamp", "userId", "shiftId"]
+    },
+    "Shift": {
+      "title": "Shift",
+      "description": "Abertura de turno de abastecimento.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "ID único do turno" },
+        "date": { "type": "string", "description": "Data da abertura" },
+        "time": { "type": "string", "description": "Hora da abertura" },
+        "shiftType": { "type": "string", "enum": ["Manhã", "Tarde"], "description": "Tipo do turno" },
+        "initialPumpOdometer": { "type": "number", "description": "Hodômetro inicial da bomba" },
+        "initialLiters": { "type": "number", "description": "Quantidade de litros inicial" },
+        "remainingLiters": { "type": "number", "description": "Litros restantes na bomba" },
+        "status": { "type": "string", "enum": ["Aberto", "Fechado"], "description": "Status do turno" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Data e hora do registro" },
+        "userId": { "type": "string", "description": "UID do usuário que criou o turno" }
+      },
+      "required": ["id", "date", "time", "shiftType", "initialPumpOdometer", "initialLiters", "remainingLiters", "status", "timestamp", "userId"]
     }
   },
   "firestore": {
     "/users/{userId}/abastecimentos/{recordId}": {
       "schema": "FuelRecord",
       "description": "Coleção de registros de abastecimento vinculados ao usuário."
+    },
+    "/users/{userId}/turnos/{shiftId}": {
+      "schema": "Shift",
+      "description": "Coleção de aberturas de turno vinculadas ao usuário."
     }
   }
 }

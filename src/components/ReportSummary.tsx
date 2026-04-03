@@ -35,14 +35,14 @@ export const ReportSummary = () => {
         id: `demo-${idx}`,
         plate,
         driverName: `Motorista Demo ${idx + 1}`,
-        shift: idx % 2 === 0 ? 'Manhã' : 'Tarde',
-        mileage: 10000 + idx * 500,
-        amount: 40 + Math.random() * 20,
-        fuelType: 'Diesel S10',
+        time: idx % 2 === 0 ? '08:30' : '14:45',
+        truckKm: 10000 + idx * 500,
+        horimeter: 1200.5 + idx * 10,
+        liters: 40 + Math.random() * 20,
+        pumpOdometer: 50000 + idx * 100,
         timestamp: selectedDate.toISOString(),
-        consumption: 2.5 + Math.random() * 2,
         userId: 'demo',
-        responsibleName: 'Sistema Demo'
+        shiftId: 'demo-shift'
       }));
       setRecords(demoRecords);
 
@@ -63,42 +63,15 @@ export const ReportSummary = () => {
         setRecords([...newRecords].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()));
       });
 
-      // Fetch weekly alerts for real data
-      getRecordsForCurrentWeek().then(weeklyRecords => {
-        const truckData: Record<string, { plate: string, consumptions: number[], lastConsumption?: number }> = {};
-        weeklyRecords.forEach(record => {
-          if (!truckData[record.plate]) truckData[record.plate] = { plate: record.plate, consumptions: [] };
-          if (record.consumption !== undefined) {
-            truckData[record.plate].consumptions.push(record.consumption);
-            if (truckData[record.plate].lastConsumption === undefined) truckData[record.plate].lastConsumption = record.consumption;
-          }
-        });
-
-        const calculatedAlerts: TruckAlert[] = Object.values(truckData)
-          .filter(data => data.consumptions.length > 0 && data.lastConsumption !== undefined)
-          .map(data => {
-            const weeklyAvg = data.consumptions.reduce((a, b) => a + b, 0) / data.consumptions.length;
-            const variation = ((data.lastConsumption! - weeklyAvg) / weeklyAvg) * 100;
-            const absVariation = Math.abs(variation);
-            let status: AlertStatus = 'Normal';
-            if (absVariation > 30) status = 'Crítico';
-            else if (absVariation > 15) status = 'Atenção';
-            return { plate: data.plate, currentConsumption: data.lastConsumption!, weeklyAvg, variation, status };
-          });
-        setAlerts(calculatedAlerts);
-      });
+      // Fetch weekly alerts for real data (Disabled for now)
+      setAlerts([]);
 
       return () => unsubscribe();
     }
   }, [selectedDate, isDemoMode]);
 
-  const totalFuel = records.reduce((acc, r) => acc + r.amount, 0);
+  const totalFuel = records.reduce((acc, r) => acc + (r.liters || 0), 0);
   const totalRecords = records.length;
-  
-  const recordsWithConsumption = records.filter(r => r.consumption !== undefined);
-  const avgConsumption = recordsWithConsumption.length > 0 
-    ? recordsWithConsumption.reduce((acc, r) => acc + (r.consumption || 0), 0) / recordsWithConsumption.length 
-    : 0;
 
   const generatePDF = async () => {
     try {
@@ -122,62 +95,27 @@ export const ReportSummary = () => {
       const shifts = ['Manhã', 'Tarde'] as const;
       let currentY = isDemoMode ? 45 : 40;
 
-      shifts.forEach((shift) => {
-        const shiftRecords = records.filter(r => r.shift === shift);
-        
-        doc.setFontSize(14);
-        doc.setTextColor(0);
-        doc.text(`TURNO: ${shift.toUpperCase()}`, 14, currentY);
-        currentY += 5;
-        doc.setDrawColor(200);
-        doc.line(14, currentY, 196, currentY);
-        currentY += 5;
+      // Group records by shift if possible, or just list them
+      const tableData = records.map(r => [
+        r.plate,
+        r.driverName,
+        r.time || format(parseISO(r.timestamp), 'HH:mm'),
+        r.truckKm?.toLocaleString() || '-',
+        r.horimeter?.toFixed(1) || '-',
+        `${r.liters}L`,
+        r.pumpOdometer?.toLocaleString() || '-'
+      ]);
 
-        if (shiftRecords.length === 0) {
-          doc.setFontSize(10);
-          doc.setTextColor(150);
-          doc.text('Nenhum registro para este turno.', 14, currentY);
-          currentY += 15;
-        } else {
-          const tableData = shiftRecords.map(r => [
-            r.plate,
-            r.driverName,
-            r.driverId || '-',
-            r.mileageStart?.toLocaleString() || '-',
-            r.mileageEnd?.toLocaleString() || '-',
-            r.mileageDiff?.toLocaleString() || '-',
-            r.horimeterDiff?.toFixed(1) || '-',
-            `${r.amount}L`,
-            r.fuelType,
-            format(parseISO(r.timestamp), 'HH:mm'),
-            r.consumption ? `${r.consumption.toFixed(2)} KM/L` : '-'
-          ]);
-
-          autoTable(doc, {
-            startY: currentY,
-            head: [['Placa', 'Motorista', 'Matr.', 'KM Inic.', 'KM Final', 'Δ KM', 'Δ HR', 'Litros', 'Comb.', 'Hora', 'Consumo']],
-            body: tableData,
-            headStyles: { fillColor: [249, 115, 22] },
-            styles: { fontSize: 6 },
-            margin: { left: 10, right: 10 }
-          });
-
-          currentY = (doc as any).lastAutoTable.finalY + 10;
-          
-          const shiftTotalLiters = shiftRecords.reduce((acc, r) => acc + r.amount, 0);
-          doc.setFontSize(10);
-          doc.setTextColor(0);
-          doc.text(`Subtotal do turno ${shift}:`, 14, currentY);
-          doc.text(`- Total de abastecimentos: ${shiftRecords.length}`, 14, currentY + 5);
-          doc.text(`- Total de litros: ${shiftTotalLiters.toFixed(2)}L`, 14, currentY + 10);
-          currentY += 25;
-        }
-
-        if (currentY > 250 && shift === 'Manhã') {
-          doc.addPage();
-          currentY = 20;
-        }
+      autoTable(doc, {
+        startY: currentY,
+        head: [['Placa', 'Motorista', 'Hora', 'KM Caminhão', 'Horímetro', 'Litros', 'Bomba']],
+        body: tableData,
+        headStyles: { fillColor: [249, 115, 22] },
+        styles: { fontSize: 8 },
+        margin: { left: 10, right: 10 }
       });
+
+      currentY = (doc as any).lastAutoTable.finalY + 15;
 
       // Alerts Section in PDF
       if (alerts.length > 0) {
@@ -223,9 +161,6 @@ export const ReportSummary = () => {
       doc.setTextColor(0);
       doc.text(`Total geral de abastecimentos: ${totalRecords}`, 14, currentY);
       doc.text(`Total geral de litros: ${totalFuel.toFixed(2)}L`, 14, currentY + 7);
-      if (avgConsumption > 0) {
-        doc.text(`Média de consumo geral: ${avgConsumption.toFixed(2)} KM/L`, 14, currentY + 14);
-      }
 
       doc.save(`relatorio_cplu_${format(selectedDate, 'yyyy-MM-dd')}.pdf`);
     } catch (err) {
@@ -243,18 +178,12 @@ export const ReportSummary = () => {
       const mainData = records.map(r => ({
         'Placa': r.plate,
         'Motorista': r.driverName,
-        'Matrícula': r.driverId || '',
-        'Turno': r.shift,
-        'Hodômetro Inicial': r.mileageStart || '',
-        'Hodômetro Final': r.mileageEnd || '',
-        'Diferença KM': r.mileageDiff || '',
-        'Horímetro Inicial': r.horimeterStart || '',
-        'Horímetro Final': r.horimeterEnd || '',
-        'Diferença HR': r.horimeterDiff || '',
-        'Litros': r.amount,
-        'Combustível': r.fuelType,
-        'Data/Hora': format(parseISO(r.timestamp), 'dd/MM/yyyy HH:mm'),
-        'Consumo (KM/L)': r.consumption || ''
+        'Hora': r.time || format(parseISO(r.timestamp), 'HH:mm'),
+        'KM Caminhão': r.truckKm,
+        'Horímetro': r.horimeter,
+        'Litros': r.liters,
+        'Hodômetro Bomba': r.pumpOdometer,
+        'Data': format(parseISO(r.timestamp), 'dd/MM/yyyy')
       }));
 
       // Alerts Data
@@ -357,7 +286,8 @@ export const ReportSummary = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 gap-4 mb-8">
           <div className="bg-slate-50 p-5 rounded-3xl text-left">
             <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Total Litros</div>
             <div className="text-2xl font-black text-orange-600">{totalFuel.toFixed(1)}L</div>
@@ -367,13 +297,6 @@ export const ReportSummary = () => {
             <div className="text-2xl font-black text-slate-800">{totalRecords}</div>
           </div>
         </div>
-
-        {avgConsumption > 0 && (
-          <div className="bg-green-50 p-5 rounded-3xl text-left mb-8 border border-green-100">
-            <div className="text-[10px] font-black uppercase text-green-600 tracking-widest mb-1">Média Consumo Geral</div>
-            <div className="text-2xl font-black text-green-700">{avgConsumption.toFixed(2)} KM/L</div>
-          </div>
-        )}
 
         <AnimatePresence>
           {error && (
@@ -456,8 +379,8 @@ export const ReportSummary = () => {
                 <div className="text-[10px] font-bold text-slate-400">{format(parseISO(r.timestamp), 'HH:mm')} - {r.shift}</div>
               </div>
               <div className="text-right">
-                <div className="font-black text-orange-600">{r.amount}L</div>
-                <div className="text-[10px] font-bold text-slate-400">{r.mileage.toLocaleString()} KM</div>
+                <div className="font-black text-orange-600">{r.liters}L</div>
+                <div className="text-[10px] font-bold text-slate-400">{(r.truckKm || 0).toLocaleString()} KM</div>
               </div>
             </div>
           ))}

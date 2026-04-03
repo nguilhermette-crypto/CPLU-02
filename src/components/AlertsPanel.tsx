@@ -20,85 +20,13 @@ export const AlertsPanel = () => {
   const [isDemoMode, setIsDemoMode] = useState(false);
 
   const calculateAlerts = (records: FuelRecord[]) => {
-    const truckData: Record<string, { plate: string, consumptions: number[], lastConsumption?: number }> = {};
-
-    records.forEach(record => {
-      if (!truckData[record.plate]) {
-        truckData[record.plate] = { plate: record.plate, consumptions: [] };
-      }
-      if (record.consumption !== undefined) {
-        truckData[record.plate].consumptions.push(record.consumption);
-        // Records are ordered by timestamp desc, so the first one we find is the latest
-        if (truckData[record.plate].lastConsumption === undefined) {
-          truckData[record.plate].lastConsumption = record.consumption;
-        }
-      }
-    });
-
-    const calculatedAlerts: TruckAlert[] = Object.values(truckData)
-      .filter(data => data.consumptions.length > 0 && data.lastConsumption !== undefined)
-      .map(data => {
-        const weeklyAvg = data.consumptions.reduce((a, b) => a + b, 0) / data.consumptions.length;
-        const variation = ((data.lastConsumption! - weeklyAvg) / weeklyAvg) * 100;
-        const absVariation = Math.abs(variation);
-
-        let status: AlertStatus = 'Normal';
-        if (absVariation > 30) status = 'Crítico';
-        else if (absVariation > 15) status = 'Atenção';
-
-        return {
-          plate: data.plate,
-          currentConsumption: data.lastConsumption!,
-          weeklyAvg,
-          variation,
-          status
-        };
-      });
-
-    setAlerts(calculatedAlerts);
+    // Consumption alerts are currently disabled due to schema change
+    setAlerts([]);
   };
 
   const generateDemoData = () => {
-    const demoTrucks = [
-      'ABC-1234', 'XYZ-5678', 'KJH-9012', 'PLM-3456', 'QWE-7890',
-      'RTY-1122', 'UIO-3344', 'PAS-5566', 'DFG-7788', 'HJK-9900',
-      'LZX-2233', 'CVB-4455', 'BNM-6677', 'WER-8899', 'TYU-0011',
-      'IOP-2244', 'ASD-6688', 'FGH-1133', 'JKL-5577', 'ZXC-9911'
-    ];
-
-    const demoAlerts: TruckAlert[] = demoTrucks.map(plate => {
-      const baseAvg = 2.5 + Math.random() * 2; // 2.5 to 4.5 KM/L
-      const randomFactor = Math.random();
-      let current;
-      
-      if (randomFactor > 0.85) {
-        // Critical (Low or High)
-        current = Math.random() > 0.5 ? baseAvg * 1.4 : baseAvg * 0.6;
-      } else if (randomFactor > 0.7) {
-        // Attention
-        current = Math.random() > 0.5 ? baseAvg * 1.2 : baseAvg * 0.8;
-      } else {
-        // Normal
-        current = baseAvg * (0.95 + Math.random() * 0.1);
-      }
-
-      const variation = ((current - baseAvg) / baseAvg) * 100;
-      const absVariation = Math.abs(variation);
-
-      let status: AlertStatus = 'Normal';
-      if (absVariation > 30) status = 'Crítico';
-      else if (absVariation > 15) status = 'Atenção';
-
-      return {
-        plate,
-        currentConsumption: current,
-        weeklyAvg: baseAvg,
-        variation,
-        status
-      };
-    });
-
-    setAlerts(demoAlerts);
+    // Demo alerts are currently disabled
+    setAlerts([]);
     setLoading(false);
   };
 
