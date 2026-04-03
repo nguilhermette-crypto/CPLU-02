@@ -48,6 +48,11 @@ export const RegisterForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    if (!auth.currentUser) {
+      setIsLoadingShift(false);
+      return;
+    }
+
     const unsubscribe = subscribeToActiveShift((shift) => {
       setActiveShift(shift);
       setIsLoadingShift(false);
@@ -58,7 +63,16 @@ export const RegisterForm = () => {
         setShiftFormData(prev => ({ ...prev, shiftType: hour < 12 ? 'Manhã' : 'Tarde' }));
       }
     });
-    return unsubscribe;
+
+    // Add a safety timeout to stop loading if something goes wrong
+    const timeout = setTimeout(() => {
+      setIsLoadingShift(false);
+    }, 5000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   useEffect(() => {

@@ -63,8 +63,30 @@ export const ReportSummary = () => {
         setRecords([...newRecords].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()));
       });
 
-      // Fetch weekly alerts for real data (Disabled for now)
-      setAlerts([]);
+      // Fetch weekly alerts for real data
+      getRecordsForCurrentWeek().then(weeklyRecords => {
+        const truckData: Record<string, { plate: string, consumptions: number[], lastConsumption?: number }> = {};
+        weeklyRecords.forEach(record => {
+          if (!truckData[record.plate]) truckData[record.plate] = { plate: record.plate, consumptions: [] };
+          if (record.consumption !== undefined) {
+            truckData[record.plate].consumptions.push(record.consumption);
+            if (truckData[record.plate].lastConsumption === undefined) truckData[record.plate].lastConsumption = record.consumption;
+          }
+        });
+
+        const calculatedAlerts: TruckAlert[] = Object.values(truckData)
+          .filter(data => data.consumptions.length > 0 && data.lastConsumption !== undefined)
+          .map(data => {
+            const weeklyAvg = data.consumptions.reduce((a, b) => a + b, 0) / data.consumptions.length;
+            const variation = ((data.lastConsumption! - weeklyAvg) / weeklyAvg) * 100;
+            const absVariation = Math.abs(variation);
+            let status: AlertStatus = 'Normal';
+            if (absVariation > 30) status = 'Crítico';
+            else if (absVariation > 15) status = 'Atenção';
+            return { plate: data.plate, currentConsumption: data.lastConsumption!, weeklyAvg, variation, status };
+          });
+        setAlerts(calculatedAlerts);
+      });
 
       return () => unsubscribe();
     }
@@ -103,15 +125,16 @@ export const ReportSummary = () => {
         r.truckKm?.toLocaleString() || '-',
         r.horimeter?.toFixed(1) || '-',
         `${r.liters}L`,
+        r.consumption?.toFixed(2) || '-',
         r.pumpOdometer?.toLocaleString() || '-'
       ]);
 
       autoTable(doc, {
         startY: currentY,
-        head: [['Placa', 'Motorista', 'Hora', 'KM Caminhão', 'Horímetro', 'Litros', 'Bomba']],
+        head: [['Placa', 'Motorista', 'Hora', 'KM Caminhão', 'Horímetro', 'Litros', 'Consumo', 'Bomba']],
         body: tableData,
         headStyles: { fillColor: [249, 115, 22] },
-        styles: { fontSize: 8 },
+        styles: { fontSize: 7 },
         margin: { left: 10, right: 10 }
       });
 
@@ -182,6 +205,7 @@ export const ReportSummary = () => {
         'KM Caminhão': r.truckKm,
         'Horímetro': r.horimeter,
         'Litros': r.liters,
+        'Consumo (KM/L)': r.consumption,
         'Hodômetro Bomba': r.pumpOdometer,
         'Data': format(parseISO(r.timestamp), 'dd/MM/yyyy')
       }));
@@ -380,6 +404,7 @@ export const ReportSummary = () => {
               </div>
               <div className="text-right">
                 <div className="font-black text-orange-600">{r.liters}L</div>
+                <div className="text-[10px] font-bold text-slate-500">{r.consumption ? `${r.consumption.toFixed(2)} KM/L` : '-'}</div>
                 <div className="text-[10px] font-bold text-slate-400">{(r.truckKm || 0).toLocaleString()} KM</div>
               </div>
             </div>

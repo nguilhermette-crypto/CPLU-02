@@ -10,6 +10,7 @@ export interface FuelRecord {
   timestamp: string;
   userId: string;
   shiftId: string;
+  consumption?: number;
 }
 
 export interface Shift {

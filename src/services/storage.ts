@@ -258,15 +258,25 @@ export const saveRecord = async (record: Omit<FuelRecord, 'id'>, activeShift: Sh
   const path = getCollectionPath();
   const shiftPath = getShiftCollectionPath();
   try {
+    // 1. Calculate consumption if possible
+    let consumption: number | undefined;
+    const lastRecord = await getLastRecordForPlate(record.plate);
+    
+    if (lastRecord && record.truckKm > lastRecord.truckKm) {
+      const kmDiff = record.truckKm - lastRecord.truckKm;
+      consumption = kmDiff / record.liters;
+    }
+
     const dataToSave = {
       ...record,
+      consumption,
       userId: auth.currentUser?.uid
     };
 
-    // 1. Save the fuel record
+    // 2. Save the fuel record
     await addDoc(collection(db, path), dataToSave);
 
-    // 2. Update remaining liters in the shift
+    // 3. Update remaining liters in the shift
     const newRemaining = activeShift.remainingLiters - record.liters;
     await updateDoc(doc(db, shiftPath, activeShift.id), {
       remainingLiters: newRemaining

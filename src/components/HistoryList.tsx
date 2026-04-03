@@ -125,6 +125,7 @@ export const HistoryList = () => {
                 <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">KM Caminhão</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Horímetro</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Litros</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Consumo</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Bomba</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Ações</th>
               </tr>
@@ -169,6 +170,11 @@ export const HistoryList = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="text-sm font-black text-orange-600">{record.liters}L</div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className={`text-sm font-black ${record.consumption ? 'text-slate-700' : 'text-slate-300'}`}>
+                        {record.consumption ? `${record.consumption.toFixed(2)}` : '-'}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="text-sm font-bold text-slate-800">{(record.pumpOdometer || 0).toLocaleString()}</div>
@@ -251,6 +257,7 @@ export const HistoryList = () => {
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-black text-orange-600">{r.liters}L</div>
+                        <div className="text-[10px] font-bold text-slate-500">{r.consumption ? `${r.consumption.toFixed(2)} KM/L` : '-'}</div>
                         <div className="text-[9px] font-bold text-slate-400">{r.truckKm.toLocaleString()} KM</div>
                       </div>
                     </div>
