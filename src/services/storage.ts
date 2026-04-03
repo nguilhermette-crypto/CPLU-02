@@ -83,18 +83,20 @@ const getShiftCollectionPath = () => {
 
 export const subscribeToActiveShift = (onUpdate: (shift: Shift | null) => void) => {
   const path = getShiftCollectionPath();
+  // Query only by status to avoid composite index with timestamp
   const q = query(
     collection(db, path),
-    where('status', '==', 'Aberto'),
-    orderBy('timestamp', 'desc'),
-    limit(1)
+    where('status', '==', 'Aberto')
   );
 
   return onSnapshot(q, (snapshot) => {
     if (snapshot.empty) {
       onUpdate(null);
     } else {
-      onUpdate({ ...snapshot.docs[0].data(), id: snapshot.docs[0].id } as Shift);
+      // Sort in memory to get the latest one
+      const docs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Shift));
+      docs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      onUpdate(docs[0]);
     }
   }, (error) => {
     handleFirestoreError(error, OperationType.LIST, path);
@@ -170,17 +172,19 @@ export const subscribeToRecordsByDate = (date: Date, onUpdate: (records: FuelRec
 
 export const getLastRecordForPlate = async (plate: string): Promise<FuelRecord | null> => {
   const path = getCollectionPath();
+  // Query only by plate to avoid composite index with timestamp
   const q = query(
     collection(db, path), 
-    where('plate', '==', plate.toUpperCase()), 
-    orderBy('timestamp', 'desc'), 
-    limit(1)
+    where('plate', '==', plate.toUpperCase())
   );
   
   try {
     const snapshot = await getDocs(q);
     if (snapshot.empty) return null;
-    return { ...snapshot.docs[0].data(), id: snapshot.docs[0].id } as FuelRecord;
+    const docs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FuelRecord));
+    // Sort in memory
+    docs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return docs[0];
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, path);
     return null;
@@ -192,19 +196,20 @@ export const getMorningRecordForPlateOnDay = async (plate: string, date: Date): 
   const start = startOfDay(date).toISOString();
   const end = endOfDay(date).toISOString();
   
+  // Query by plate and timestamp range, filter shift in memory
   const q = query(
     collection(db, path),
     where('plate', '==', plate.toUpperCase()),
-    where('shift', '==', 'Manhã'),
     where('timestamp', '>=', start),
-    where('timestamp', '<=', end),
-    limit(1)
+    where('timestamp', '<=', end)
   );
   
   try {
     const snapshot = await getDocs(q);
     if (snapshot.empty) return null;
-    return { ...snapshot.docs[0].data(), id: snapshot.docs[0].id } as FuelRecord;
+    const records = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as FuelRecord[];
+    const morningRecord = records.find(r => r.shift === 'Manhã');
+    return morningRecord || null;
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, path);
     return null;
@@ -215,16 +220,19 @@ export const getWeeklyRecordsForPlate = async (plate: string): Promise<FuelRecor
   const path = getCollectionPath();
   const sevenDaysAgo = subDays(new Date(), 7).toISOString();
   
+  // Query only by plate to avoid composite index with timestamp
   const q = query(
     collection(db, path),
-    where('plate', '==', plate.toUpperCase()),
-    where('timestamp', '>=', sevenDaysAgo),
-    orderBy('timestamp', 'desc')
+    where('plate', '==', plate.toUpperCase())
   );
   
   try {
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as FuelRecord[];
+    const records = snapshot.docs
+      .map(doc => ({ ...doc.data(), id: doc.id } as FuelRecord))
+      .filter(r => r.timestamp >= sevenDaysAgo);
+    
+    return records.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, path);
     return [];
