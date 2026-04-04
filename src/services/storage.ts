@@ -196,10 +196,9 @@ export const getMorningRecordForPlateOnDay = async (plate: string, date: Date): 
   const start = startOfDay(date).toISOString();
   const end = endOfDay(date).toISOString();
   
-  // Query by plate and timestamp range, filter shift in memory
+  // Query only by timestamp range to avoid composite index with plate
   const q = query(
     collection(db, path),
-    where('plate', '==', plate.toUpperCase()),
     where('timestamp', '>=', start),
     where('timestamp', '<=', end)
   );
@@ -208,7 +207,11 @@ export const getMorningRecordForPlateOnDay = async (plate: string, date: Date): 
     const snapshot = await getDocs(q);
     if (snapshot.empty) return null;
     const records = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as FuelRecord[];
-    const morningRecord = records.find(r => r.shiftType === 'Manhã');
+    // Filter by plate and shift in memory
+    const morningRecord = records.find(r => 
+      r.plate.toUpperCase() === plate.toUpperCase() && 
+      r.shiftType === 'Manhã'
+    );
     return morningRecord || null;
   } catch (error) {
     handleFirestoreError(error, OperationType.GET, path);
@@ -274,15 +277,18 @@ export const saveRecord = async (record: Omit<FuelRecord, 'id'>, activeShift: Sh
 
     // 2. Calculate consumption if possible
     let consumption = 0;
-    try {
-      const lastRecord = await getLastRecordForPlate(record.plate);
-      if (lastRecord && record.truckKm > lastRecord.truckKm) {
-        const kmDiff = record.truckKm - lastRecord.truckKm;
-        consumption = Number((kmDiff / record.liters).toFixed(2));
+    if (record.shiftType !== 'Manhã') {
+      try {
+        const lastRecord = await getLastRecordForPlate(record.plate);
+        if (lastRecord && record.truckKm > lastRecord.truckKm && lastRecord.liters > 0) {
+          const kmDiff = record.truckKm - lastRecord.truckKm;
+          // New formula: (Current KM - Previous KM) / Previous Liters
+          consumption = Number((kmDiff / lastRecord.liters).toFixed(2));
+        }
+      } catch (err) {
+        console.error('Erro ao calcular consumo, usando 0:', err);
+        consumption = 0;
       }
-    } catch (err) {
-      console.error('Erro ao calcular consumo, usando 0:', err);
-      consumption = 0;
     }
 
     const dataToSave = {
@@ -320,6 +326,48 @@ export const removeRecord = async (id: string) => {
     await deleteDoc(doc(db, path, id));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, `${path}/${id}`);
+  }
+};
+
+export const getRecordsByShift = async (shiftId: string): Promise<FuelRecord[]> => {
+  const path = getCollectionPath();
+  const q = query(
+    collection(db, path),
+    where('shiftId', '==', shiftId)
+  );
+  
+  try {
+    const snapshot = await getDocs(q);
+    const records = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as FuelRecord[];
+    // Sort in memory to avoid composite index requirement
+    return records.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    return [];
+  }
+};
+
+export const getShiftById = async (shiftId: string): Promise<Shift | null> => {
+  const path = getShiftCollectionPath();
+  try {
+    const docSnap = await getDocs(query(collection(db, path), where('__name__', '==', shiftId)));
+    if (docSnap.empty) return null;
+    return { ...docSnap.docs[0].data(), id: docSnap.docs[0].id } as Shift;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+    return null;
+  }
+};
+
+export const getAllShifts = async (limitCount: number = 20): Promise<Shift[]> => {
+  const path = getShiftCollectionPath();
+  const q = query(collection(db, path), orderBy('timestamp', 'desc'), limit(limitCount));
+  try {
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Shift[];
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    return [];
   }
 };
 

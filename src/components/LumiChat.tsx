@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, MessageCircle, Sparkles, Send, HelpCircle, Info, MessageSquare } from 'lucide-react';
+import { X, MessageCircle, Sparkles, Send, HelpCircle, MessageSquare } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
+import { Logo } from './Logo';
 
 interface Message {
   id: string;
@@ -12,10 +13,10 @@ interface Message {
 
 const QUICK_OPTIONS = [
   { id: 'error', label: 'Erro no abastecimento', response: 'Verifique se o KM atual é maior que o anterior e se todos os campos obrigatórios estão preenchidos. O sistema bloqueia valores inconsistentes para sua segurança! 🛑' },
-  { id: 'pdf', label: 'Gerar PDF', response: 'Para gerar o relatório, vá na aba "Relatórios" e clique no botão "GERAR RELATÓRIO PDF". O arquivo será baixado automaticamente. 📄' },
+  { id: 'pdf', label: 'Gerar PDF', response: 'Para gerar o relatório, vá na aba "Relatórios" e clique no botão "GERAR PDF - MANHÃ" ou "GERAR PDF - TARDE". O arquivo será baixado automaticamente. 📄' },
   { id: 'critical', label: 'Caminhão crítico', response: 'Um caminhão entra em estado crítico quando seu consumo varia mais de 30% em relação à média semanal. Fique atento a esses veículos! ⚠️' },
   { id: 'consumption', label: 'Consumo', response: 'O consumo é calculado dividindo a diferença de KM pelo total de litros abastecidos. É o melhor indicador de eficiência da frota! ⛽' },
-  { id: 'others', label: 'Outras dúvidas', response: 'Estou aqui para ajudar! Você pode me perguntar sobre turnos, registros ou como usar o painel. O que mais você gostaria de saber? 😊' },
+  { id: 'others', label: 'Outras dúvidas', response: 'Estou aqui para ajudar! Você pode me perguntar sobre os turnos (Manhã e Tarde), registros ou como usar o painel. O que mais você gostaria de saber? 😊' },
 ];
 
 export const LumiChat = () => {
@@ -162,7 +163,7 @@ export const LumiChat = () => {
         <img src={lumiImage} alt="Lumi" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
       ) : (
         <div className="w-full h-full flex items-center justify-center bg-orange-100 text-orange-500">
-          <MessageCircle size={size * 0.6} />
+          <Logo size="sm" showText={false} />
         </div>
       )}
     </div>

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { FuelRecord, Shift } from '../types';
+import { Logo } from './Logo';
 import { 
   saveRecord, 
   getLastRecordForPlate, 
@@ -60,7 +61,10 @@ export const RegisterForm = () => {
       // Auto-set shift type based on time if starting new
       if (!shift) {
         const hour = new Date().getHours();
-        setShiftFormData(prev => ({ ...prev, shiftType: hour < 12 ? 'Manhã' : 'Tarde' }));
+        let detectedShift: 'Manhã' | 'Tarde' = 'Manhã';
+        if (hour >= 12) detectedShift = 'Tarde';
+        
+        setShiftFormData(prev => ({ ...prev, shiftType: detectedShift }));
       }
     });
 
@@ -109,13 +113,13 @@ export const RegisterForm = () => {
 
     try {
       const now = new Date();
-      await startShift({
-        date: now.toLocaleDateString('pt-BR'),
-        time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        shiftType: shiftFormData.shiftType as 'Manhã' | 'Tarde',
-        initialPumpOdometer: Number(shiftFormData.initialPumpOdometer),
-        initialLiters: Number(shiftFormData.initialLiters)
-      });
+        await startShift({
+          date: now.toLocaleDateString('pt-BR'),
+          time: now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          shiftType: shiftFormData.shiftType as 'Manhã' | 'Tarde',
+          initialPumpOdometer: Number(shiftFormData.initialPumpOdometer),
+          initialLiters: Number(shiftFormData.initialLiters)
+        });
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
     } catch (err) {
@@ -322,15 +326,50 @@ export const RegisterForm = () => {
   return (
     <div className="space-y-6">
       <div className="bg-white p-8 rounded-[32px] shadow-xl shadow-slate-200/50 border border-white">
-        <h2 className="text-xl font-black mb-8 text-slate-800 flex items-center gap-3">
-          <div className="w-10 h-10 bg-orange-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-orange-200">
-            <PlusCircle size={24} />
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-xl font-black text-slate-800 flex items-center gap-3">
+            <div className="w-10 h-10 bg-orange-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-orange-200">
+              <PlusCircle size={24} />
+            </div>
+            Novo Abastecimento
+          </h2>
+          <div className="bg-orange-50 px-4 py-2 rounded-full border border-orange-100">
+            <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest">
+              Turno: {activeShift.shiftType}
+            </span>
           </div>
-          Novo Abastecimento
-        </h2>
+        </div>
 
-        <form onSubmit={handleFuelSubmit} className="space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Fuel Pump Visual */}
+          <div className="lg:w-1/3 flex flex-col items-center justify-center">
+            <div className="relative w-48 h-72 bg-slate-100 rounded-[32px] border-4 border-slate-200 shadow-inner flex flex-col items-center pt-8">
+              {/* Pump Display */}
+              <div className="w-32 h-16 bg-slate-800 rounded-xl border-4 border-slate-300 flex flex-col items-center justify-center mb-8">
+                <div className="text-green-400 font-mono text-xl font-black">
+                  {fuelFormData.liters || '0.00'}
+                </div>
+                <div className="text-[8px] text-green-400/50 uppercase font-bold">Litros</div>
+              </div>
+
+              {/* Logo on Pump */}
+              <Logo size="md" showText={false} className="scale-125 mb-8" />
+
+              {/* Pump Handle Slot */}
+              <div className="absolute -right-4 top-1/2 w-4 h-16 bg-slate-300 rounded-r-lg border-r-4 border-slate-400" />
+              
+              {/* Base */}
+              <div className="absolute bottom-0 w-full h-8 bg-slate-300 rounded-b-[28px]" />
+            </div>
+            <div className="mt-4 text-center">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bomba de Abastecimento</p>
+              <p className="text-xs font-bold text-slate-600">CPLU - Unidade Operacional</p>
+            </div>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleFuelSubmit} className="flex-1 space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-2">
               <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Placa do Caminhão</label>
               <input 
@@ -444,5 +483,6 @@ export const RegisterForm = () => {
         </form>
       </div>
     </div>
-  );
+  </div>
+);
 };

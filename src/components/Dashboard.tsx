@@ -13,6 +13,7 @@ import {
 import { motion } from 'motion/react';
 import { FuelRecord, TruckAlert, AlertStatus } from '../types';
 import { getRecordsForCurrentWeek } from '../services/storage';
+import { Logo } from './Logo';
 
 export const Dashboard = () => {
   const [records, setRecords] = useState<FuelRecord[]>([]);
@@ -34,6 +35,24 @@ export const Dashboard = () => {
       : 0
   };
 
+  const truckStatus = Object.entries(
+    records.reduce((acc: Record<string, number[]>, r) => {
+      if (!acc[r.plate]) acc[r.plate] = [];
+      if (r.consumption && r.consumption > 0) acc[r.plate].push(r.consumption);
+      return acc;
+    }, {})
+  ).map(([plate, consumptions]) => {
+    const cons = consumptions as number[];
+    const avg = cons.reduce((a, b) => a + b, 0) / cons.length;
+    const latest = cons[0] || 0; // records are sorted desc
+    
+    let status: 'ECONÔMICO' | 'NORMAL' | 'CRÍTICO' = 'NORMAL';
+    if (latest > avg * 1.05) status = 'ECONÔMICO';
+    else if (latest < avg * 0.95) status = 'CRÍTICO';
+    
+    return { plate, latest, avg, status };
+  }).sort((a, b) => a.plate.localeCompare(b.plate));
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-slate-300">
@@ -46,9 +65,7 @@ export const Dashboard = () => {
   return (
     <div className="space-y-6">
       <div className="bg-white p-8 rounded-[32px] shadow-xl shadow-slate-200/50 border border-white text-center">
-        <div className="w-20 h-20 bg-orange-50 rounded-[32px] flex items-center justify-center text-orange-500 mx-auto mb-6">
-          <Activity size={40} />
-        </div>
+        <Logo size="lg" className="mb-6" />
         <h2 className="text-2xl font-black text-slate-800 mb-2">Bem-vindo ao CPLU</h2>
         <p className="text-slate-400 text-sm font-medium mb-8">Resumo da operação semanal.</p>
 
@@ -77,6 +94,39 @@ export const Dashboard = () => {
           </p>
         </div>
       </div>
+
+      {truckStatus.length > 0 && (
+        <div className="bg-white p-8 rounded-[32px] shadow-xl shadow-slate-200/50 border border-white">
+          <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3">
+            <div className="w-10 h-10 bg-orange-500 rounded-2xl flex items-center justify-center text-white">
+              <Truck size={20} />
+            </div>
+            Status da Frota
+          </h3>
+          
+          <div className="space-y-4">
+            {truckStatus.map((truck) => (
+              <div key={truck.plate} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div>
+                  <div className="text-sm font-black text-slate-800">{truck.plate}</div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    Consumo: {truck.latest.toFixed(2)} KM/L
+                  </div>
+                </div>
+                <div className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border ${
+                  truck.status === 'ECONÔMICO' 
+                    ? 'bg-green-50 text-green-600 border-green-100' 
+                    : truck.status === 'CRÍTICO'
+                    ? 'bg-red-50 text-red-600 border-red-100'
+                    : 'bg-blue-50 text-blue-600 border-blue-100'
+                }`}>
+                  {truck.status}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

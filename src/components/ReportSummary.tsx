@@ -11,13 +11,15 @@ import {
   AlertTriangle,
   Truck,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  Loader2
 } from 'lucide-react';
 import { format, parseISO, startOfDay, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
-import { FuelRecord, TruckAlert, AlertStatus } from '../types';
-import { subscribeToRecordsByDate, getRecordsForCurrentWeek } from '../services/storage';
+import { FuelRecord, TruckAlert, AlertStatus, Shift } from '../types';
+import { subscribeToRecordsByDate, getRecordsForCurrentWeek, getAllShifts, getRecordsByShift } from '../services/storage';
+import { Logo } from './Logo';
 
 export const ReportSummary = () => {
   const [records, setRecords] = useState<FuelRecord[]>([]);
@@ -25,7 +27,19 @@ export const ReportSummary = () => {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [alerts, setAlerts] = useState<TruckAlert[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [isGenerating, setIsGenerating] = useState<string | null>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const fetchShifts = async () => {
+      const allShifts = await getAllShifts(100);
+      const dateStr = format(selectedDate, 'dd/MM/yyyy');
+      const filteredShifts = allShifts.filter(s => s.date === dateStr);
+      setShifts(filteredShifts);
+    };
+    fetchShifts();
+  }, [selectedDate]);
 
   useEffect(() => {
     if (isDemoMode) {
@@ -76,101 +90,117 @@ export const ReportSummary = () => {
   const totalFuel = records.reduce((acc, r) => acc + (r.liters || 0), 0);
   const totalRecords = records.length;
 
-  const generatePDF = async () => {
+  const generateShiftPDF = async (shiftType: 'Manhã' | 'Tarde') => {
+    const shift = shifts.find(s => s.shiftType === shiftType);
+    if (!shift) {
+      setError(`Nenhum turno de ${shiftType} encontrado para esta data.`);
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    setIsGenerating(shiftType);
     try {
       const { jsPDF } = await import('jspdf');
       const { default: autoTable } = await import('jspdf-autotable');
       
+      const shiftRecords = await getRecordsByShift(shift.id);
       const doc = new jsPDF();
-      const reportDate = format(selectedDate, 'dd/MM/yyyy');
-      const generationTime = format(new Date(), 'HH:mm');
       
-      doc.setFontSize(22);
+      // Header with Logo
+      doc.setFillColor(249, 115, 22); // Orange
+      doc.rect(0, 0, 210, 50, 'F');
+      
+      // Draw Logo Circle in PDF
+      doc.setFillColor(255, 255, 255);
+      doc.circle(30, 25, 15, 'F');
       doc.setTextColor(249, 115, 22);
-      doc.text('CPLU - Relatório de Abastecimento', 14, 20);
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.text('cplu', 30, 27, { align: 'center' });
       
-      doc.setFontSize(10);
-      doc.setTextColor(100);
-      doc.text(`Data do Relatório: ${reportDate}`, 14, 28);
-      doc.text(`Gerado em: ${generationTime}`, 14, 33);
-      if (isDemoMode) doc.text('MODO DEMONSTRAÇÃO ATIVO', 14, 38);
-      
-      const shifts = ['Manhã', 'Tarde'] as const;
-      let currentY = isDemoMode ? 45 : 40;
+      // Green Curve below logo in PDF
+      doc.setFillColor(34, 197, 94);
+      doc.ellipse(30, 38, 18, 5, 'F');
 
-      // Group records by shift if possible, or just list them
-      const tableData = records.map(r => [
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
+      doc.text('CPLU', 60, 22);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Consórcio Paulista de Limpeza Urbana', 60, 28);
+      doc.text('RELATÓRIO DE ABASTECIMENTO POR TURNO', 60, 34);
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`TURNO: ${shift.shiftType.toUpperCase()}`, 140, 22);
+      doc.text(`DATA: ${shift.date}`, 140, 29);
+      doc.text(`HORA INÍCIO: ${shift.time}`, 140, 36);
+
+      // Summary Info
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('RESUMO DO TURNO', 14, 65);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(`Nível Inicial da Bomba: ${shift.initialPumpOdometer.toLocaleString()} L`, 14, 75);
+      
+      const finalPump = shiftRecords.length > 0 ? shiftRecords[shiftRecords.length - 1].pumpOdometer : shift.initialPumpOdometer;
+      doc.text(`Nível Final da Bomba: ${finalPump.toLocaleString()} L`, 14, 82);
+      
+      const totalShiftLiters = shiftRecords.reduce((acc, r) => acc + r.liters, 0);
+      doc.text(`Total de Caminhões Atendidos: ${shiftRecords.length}`, 120, 75);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`TOTAL ABASTECIDO: ${totalShiftLiters.toFixed(2)} L`, 120, 82);
+
+      // Table
+      const tableData = shiftRecords.map(r => [
         r.plate,
         r.driverName,
-        r.time || format(parseISO(r.timestamp), 'HH:mm'),
-        r.truckKm?.toLocaleString() || '-',
-        r.horimeter?.toFixed(1) || '-',
-        `${r.liters}L`,
-        r.consumption?.toFixed(2) || '-',
-        r.pumpOdometer?.toLocaleString() || '-'
+        r.truckKm.toLocaleString(),
+        `${r.liters.toFixed(2)}L`,
+        r.time,
+        r.shiftType
       ]);
 
       autoTable(doc, {
-        startY: currentY,
-        head: [['Placa', 'Motorista', 'Hora', 'KM Caminhão', 'Horímetro', 'Litros', 'Consumo', 'Bomba']],
+        startY: 90,
+        head: [['PLACA', 'MOTORISTA', 'KM ATUAL', 'LITROS', 'HORA', 'TURNO']],
         body: tableData,
-        headStyles: { fillColor: [249, 115, 22] },
-        styles: { fontSize: 7 },
-        margin: { left: 10, right: 10 }
+        headStyles: { 
+          fillColor: [249, 115, 22],
+          textColor: [255, 255, 255],
+          fontSize: 9,
+          fontStyle: 'bold',
+          halign: 'center'
+        },
+        bodyStyles: {
+          fontSize: 9,
+          halign: 'center',
+          textColor: [50, 50, 50]
+        },
+        alternateRowStyles: {
+          fillColor: [252, 252, 252]
+        },
+        margin: { top: 50 }
       });
 
-      currentY = (doc as any).lastAutoTable.finalY + 15;
-
-      // Alerts Section in PDF
-      if (alerts.length > 0) {
-        if (currentY > 200) {
-          doc.addPage();
-          currentY = 20;
-        }
-        doc.setFontSize(16);
-        doc.setTextColor(249, 115, 22);
-        doc.text('RESUMO DE ALERTAS DA FROTA', 14, currentY);
-        currentY += 10;
-
-        const alertTableData = alerts.map(a => [
-          a.plate,
-          `${a.currentConsumption.toFixed(2)} KM/L`,
-          `${a.weeklyAvg.toFixed(2)} KM/L`,
-          `${a.variation > 0 ? '+' : ''}${a.variation.toFixed(1)}%`,
-          a.status
-        ]);
-
-        autoTable(doc, {
-          startY: currentY,
-          head: [['Placa', 'Consumo Atual', 'Média Semanal', 'Variação', 'Status']],
-          body: alertTableData,
-          headStyles: { fillColor: [200, 200, 200], textColor: [0, 0, 0] },
-          styles: { fontSize: 8 },
-          margin: { left: 14, right: 14 }
-        });
-        currentY = (doc as any).lastAutoTable.finalY + 15;
+      // Footer
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text(`Página ${i} de ${pageCount} - CPLU Sistema de Gestão de Frota`, 105, 285, { align: 'center' });
       }
 
-      if (currentY > 230) {
-        doc.addPage();
-        currentY = 20;
-      }
-
-      doc.setFontSize(16);
-      doc.setTextColor(249, 115, 22);
-      doc.text('RESUMO FINAL', 14, currentY);
-      currentY += 10;
-      
-      doc.setFontSize(12);
-      doc.setTextColor(0);
-      doc.text(`Total geral de abastecimentos: ${totalRecords}`, 14, currentY);
-      doc.text(`Total geral de litros: ${totalFuel.toFixed(2)}L`, 14, currentY + 7);
-
-      doc.save(`relatorio_cplu_${format(selectedDate, 'yyyy-MM-dd')}.pdf`);
+      doc.save(`CPLU_Relatorio_${shift.shiftType}_${shift.date.replace(/\//g, '-')}.pdf`);
     } catch (err) {
       console.error('Error generating PDF:', err);
-      setError('Erro ao gerar o PDF. Por favor, tente novamente.');
-      setTimeout(() => setError(null), 5000);
+      setError('Erro ao gerar o PDF do turno.');
+    } finally {
+      setIsGenerating(null);
     }
   };
 
@@ -318,20 +348,32 @@ export const ReportSummary = () => {
         </AnimatePresence>
 
         <div className="flex flex-col gap-3">
-          <button 
-            onClick={generatePDF}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-5 rounded-[24px] shadow-xl shadow-orange-100 flex items-center justify-center gap-3 transition-all active:scale-[0.96]"
-          >
-            <FileText size={22} />
-            GERAR RELATÓRIO PDF
-          </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button 
+              onClick={() => generateShiftPDF('Manhã')}
+              disabled={isGenerating !== null}
+              className="bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white font-black py-5 rounded-[24px] shadow-xl shadow-orange-100 flex items-center justify-center gap-3 transition-all active:scale-[0.96]"
+            >
+              {isGenerating === 'Manhã' ? <Loader2 size={22} className="animate-spin" /> : <FileText size={22} />}
+              GERAR PDF - MANHÃ
+            </button>
+
+            <button 
+              onClick={() => generateShiftPDF('Tarde')}
+              disabled={isGenerating !== null}
+              className="bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white font-black py-5 rounded-[24px] shadow-xl shadow-orange-100 flex items-center justify-center gap-3 transition-all active:scale-[0.96]"
+            >
+              {isGenerating === 'Tarde' ? <Loader2 size={22} className="animate-spin" /> : <FileText size={22} />}
+              GERAR PDF - TARDE
+            </button>
+          </div>
           
           <button 
             onClick={exportExcel}
             className="w-full bg-slate-800 hover:bg-slate-900 text-white font-black py-5 rounded-[24px] flex items-center justify-center gap-3 transition-all active:scale-[0.96] shadow-xl shadow-slate-100"
           >
             <Download size={22} />
-            EXPORTAR EXCEL
+            EXPORTAR EXCEL PARA AUDITORIA
           </button>
         </div>
       </div>

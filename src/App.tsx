@@ -1,6 +1,7 @@
 import React, { useState, useEffect, createContext, useContext, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
+import { Logo } from './components/Logo';
 import { auth, signIn } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { LogIn, User as UserIcon, Loader2 } from 'lucide-react';
@@ -71,9 +72,7 @@ const AuthBarrier = ({ children }: { children: React.ReactNode }) => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
         <div className="bg-white p-8 rounded-[32px] shadow-xl max-w-sm w-full">
-          <div className="w-20 h-20 bg-orange-50 rounded-[32px] flex items-center justify-center text-orange-500 mx-auto mb-6">
-            <UserIcon size={40} />
-          </div>
+          <Logo size="lg" className="mb-6" />
           <h2 className="text-2xl font-black text-slate-800 mb-2 text-center">Login CPLU</h2>
           <p className="text-slate-400 text-sm font-medium mb-8 text-center">Acesse o controle de frota.</p>
           
