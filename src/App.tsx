@@ -6,7 +6,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { LogIn, User as UserIcon, Loader2 } from 'lucide-react';
 
 // Lazy load components for better initial performance
-const AlertsPanel = lazy(() => import('./components/AlertsPanel').then(m => ({ default: m.AlertsPanel })));
+const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
 const RegisterForm = lazy(() => import('./components/RegisterForm').then(m => ({ default: m.RegisterForm })));
 const HistoryList = lazy(() => import('./components/HistoryList').then(m => ({ default: m.HistoryList })));
 const ReportSummary = lazy(() => import('./components/ReportSummary').then(m => ({ default: m.ReportSummary })));
@@ -146,7 +146,7 @@ export default function App() {
           <Layout>
             <Suspense fallback={<PageLoader />}>
               <Routes>
-                <Route path="/" element={<HistoryList />} />
+                <Route path="/" element={<Dashboard />} />
                 <Route path="/registrar" element={<RegisterForm />} />
                 <Route path="/historico" element={<HistoryList />} />
                 <Route path="/relatorios" element={<ReportSummary />} />

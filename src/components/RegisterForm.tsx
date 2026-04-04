@@ -348,7 +348,7 @@ export const RegisterForm = () => {
               ) : lastRecord && (
                 <div className="text-[10px] font-bold text-orange-500 ml-1 flex items-center gap-1">
                   <History size={12} />
-                  Último KM: {lastRecord.truckKm.toLocaleString()}
+                  Último KM: {(lastRecord.truckKm || 0).toLocaleString()}
                 </div>
               )}
             </div>

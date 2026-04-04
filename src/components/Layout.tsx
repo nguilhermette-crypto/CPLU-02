@@ -71,14 +71,14 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
               <Droplets size={14} className="text-orange-500" />
               <div>
                 <div className="text-[8px] font-black text-orange-400 uppercase leading-none mb-0.5">Restante</div>
-                <div className="text-xs font-black text-orange-600 leading-none">{activeShift.remainingLiters.toFixed(1)}L</div>
+                <div className="text-xs font-black text-orange-600 leading-none">{(activeShift.remainingLiters || 0).toFixed(1)}L</div>
               </div>
             </div>
             <div className="flex-shrink-0 bg-slate-50 px-3 py-2 rounded-2xl border border-slate-100 flex items-center gap-2">
               <Gauge size={14} className="text-slate-400" />
               <div>
                 <div className="text-[8px] font-black text-slate-400 uppercase leading-none mb-0.5">Bomba</div>
-                <div className="text-xs font-black text-slate-800 leading-none">{activeShift.initialPumpOdometer.toLocaleString()}</div>
+                <div className="text-xs font-black text-slate-800 leading-none">{(activeShift.initialPumpOdometer || 0).toLocaleString()}</div>
               </div>
             </div>
             <div className="flex-shrink-0 bg-slate-50 px-3 py-2 rounded-2xl border border-slate-100 flex items-center gap-2">

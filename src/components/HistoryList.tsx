@@ -258,7 +258,7 @@ export const HistoryList = () => {
                       <div className="text-right">
                         <div className="text-sm font-black text-orange-600">{r.liters}L</div>
                         <div className="text-[10px] font-bold text-slate-500">{r.consumption ? `${r.consumption.toFixed(2)} KM/L` : '-'}</div>
-                        <div className="text-[9px] font-bold text-slate-400">{r.truckKm.toLocaleString()} KM</div>
+                        <div className="text-[9px] font-bold text-slate-400">{(r.truckKm || 0).toLocaleString()} KM</div>
                       </div>
                     </div>
                   </div>
