@@ -67,7 +67,7 @@ export const RegisterForm = () => {
         let initialPumpOdometer = '';
         let initialLiters = '';
 
-        // If it's afternoon, try to get the last record's pump odometer
+        // If it's afternoon, try to get the last record's pump odometer and last shift's remaining liters
         if (detectedShift === 'Tarde') {
           const lastRec = await getLastRecord();
           if (lastRec) {
@@ -76,7 +76,7 @@ export const RegisterForm = () => {
           
           const lastShift = await getLastShift();
           if (lastShift) {
-            initialLiters = lastShift.initialLiters.toString();
+            initialLiters = (lastShift.remainingLiters || 0).toString();
           }
         }
         
@@ -261,7 +261,7 @@ export const RegisterForm = () => {
                       ...shiftFormData, 
                       shiftType: 'Tarde',
                       initialPumpOdometer: lastRec ? lastRec.pumpOdometer.toString() : shiftFormData.initialPumpOdometer,
-                      initialLiters: lastShift ? lastShift.initialLiters.toString() : shiftFormData.initialLiters
+                      initialLiters: lastShift ? (lastShift.remainingLiters || 0).toString() : shiftFormData.initialLiters
                     });
                   }}
                   className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
