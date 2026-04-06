@@ -42,8 +42,6 @@ export const RegisterForm = () => {
     pumpOdometer: ''
   });
 
-  const [lastRecord, setLastRecord] = useState<FuelRecord | null>(null);
-  const [isLoadingLast, setIsLoadingLast] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,27 +76,6 @@ export const RegisterForm = () => {
       clearTimeout(timeout);
     };
   }, []);
-
-  useEffect(() => {
-    const fetchLast = async () => {
-      if (fuelFormData.plate.length >= 3) {
-        setIsLoadingLast(true);
-        try {
-          const last = await getLastRecordForPlate(fuelFormData.plate);
-          setLastRecord(last);
-        } catch (err) {
-          console.error('Error fetching last record:', err);
-        } finally {
-          setIsLoadingLast(false);
-        }
-      } else {
-        setLastRecord(null);
-      }
-    };
-
-    const timer = setTimeout(fetchLast, 500);
-    return () => clearTimeout(timer);
-  }, [fuelFormData.plate]);
 
   const handleStartShift = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -207,7 +184,6 @@ export const RegisterForm = () => {
           liters: '',
           pumpOdometer: ''
         });
-        setLastRecord(null);
       }, 2000);
     } catch (err) {
       setError('Erro ao salvar o registro.');
@@ -340,123 +316,87 @@ export const RegisterForm = () => {
           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Fuel Pump Visual */}
-          <div className="lg:w-1/3 flex flex-col items-center justify-center">
-            <div className="relative w-48 h-72 bg-slate-100 rounded-[32px] border-4 border-slate-200 shadow-inner flex flex-col items-center pt-8">
-              {/* Pump Display */}
-              <div className="w-32 h-16 bg-slate-800 rounded-xl border-4 border-slate-300 flex flex-col items-center justify-center mb-8">
-                <div className="text-green-400 font-mono text-xl font-black">
-                  {fuelFormData.liters || '0.00'}
-                </div>
-                <div className="text-[8px] text-green-400/50 uppercase font-bold">Litros</div>
+        <div className="flex flex-col gap-8">
+          {/* Form */}
+          <form onSubmit={handleFuelSubmit} className="flex-1 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Placa do Caminhão</label>
+                <input 
+                  type="text" 
+                  placeholder="ABC-1234"
+                  className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 focus:border-orange-500 focus:bg-white outline-none transition-all uppercase font-bold text-slate-700"
+                  value={fuelFormData.plate}
+                  onChange={e => setFuelFormData({...fuelFormData, plate: e.target.value})}
+                />
               </div>
 
-              {/* Logo on Pump */}
-              <Logo size="md" showText={false} className="scale-125 mb-8" />
-
-              {/* Pump Handle Slot */}
-              <div className="absolute -right-4 top-1/2 w-4 h-16 bg-slate-300 rounded-r-lg border-r-4 border-slate-400" />
-              
-              {/* Base */}
-              <div className="absolute bottom-0 w-full h-8 bg-slate-300 rounded-b-[28px]" />
-            </div>
-            <div className="mt-4 text-center">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bomba de Abastecimento</p>
-              <p className="text-xs font-bold text-slate-600">CPLU - Unidade Operacional</p>
-            </div>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleFuelSubmit} className="flex-1 space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="space-y-2">
-              <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Placa do Caminhão</label>
-              <input 
-                type="text" 
-                placeholder="ABC-1234"
-                className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 focus:border-orange-500 focus:bg-white outline-none transition-all uppercase font-bold text-slate-700"
-                value={fuelFormData.plate}
-                onChange={e => setFuelFormData({...fuelFormData, plate: e.target.value})}
-              />
-              {isLoadingLast ? (
-                <div className="text-[10px] font-bold text-slate-400 ml-1 flex items-center gap-1">
-                  <Loader2 size={12} className="animate-spin" />
-                  Buscando...
-                </div>
-              ) : lastRecord && (
-                <div className="text-[10px] font-bold text-orange-500 ml-1 flex items-center gap-1">
-                  <History size={12} />
-                  Último KM: {(lastRecord.truckKm || 0).toLocaleString()}
-                </div>
-              )}
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Nome do Motorista</label>
+                <input 
+                  type="text" 
+                  placeholder="Nome completo"
+                  className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 focus:border-orange-500 focus:bg-white outline-none transition-all font-bold text-slate-700"
+                  value={fuelFormData.driverName}
+                  onChange={e => setFuelFormData({...fuelFormData, driverName: e.target.value})}
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Nome do Motorista</label>
-              <input 
-                type="text" 
-                placeholder="Nome completo"
-                className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 focus:border-orange-500 focus:bg-white outline-none transition-all font-bold text-slate-700"
-                value={fuelFormData.driverName}
-                onChange={e => setFuelFormData({...fuelFormData, driverName: e.target.value})}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center gap-1">
+                  <Navigation size={12} /> KM Atual
+                </label>
+                <input 
+                  type="number" 
+                  placeholder="0"
+                  className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 focus:border-orange-500 focus:bg-white outline-none transition-all font-bold text-slate-700"
+                  value={fuelFormData.truckKm}
+                  onChange={e => setFuelFormData({...fuelFormData, truckKm: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center gap-1">
+                  <Clock size={12} /> Horímetro
+                </label>
+                <input 
+                  type="number" 
+                  step="0.1"
+                  placeholder="0.0"
+                  className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 focus:border-orange-500 focus:bg-white outline-none transition-all font-bold text-slate-700"
+                  value={fuelFormData.horimeter}
+                  onChange={e => setFuelFormData({...fuelFormData, horimeter: e.target.value})}
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center gap-1">
-                <Navigation size={12} /> KM Atual
-              </label>
-              <input 
-                type="number" 
-                placeholder="0"
-                className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 focus:border-orange-500 focus:bg-white outline-none transition-all font-bold text-slate-700"
-                value={fuelFormData.truckKm}
-                onChange={e => setFuelFormData({...fuelFormData, truckKm: e.target.value})}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center gap-1">
+                  <Fuel size={12} /> Litros Abastecidos
+                </label>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  placeholder="0.00"
+                  className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 focus:border-orange-500 focus:bg-white outline-none transition-all font-bold text-slate-700"
+                  value={fuelFormData.liters}
+                  onChange={e => setFuelFormData({...fuelFormData, liters: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Hodômetro da Bomba (Final)</label>
+                <input 
+                  type="number" 
+                  placeholder="Valor final da bomba"
+                  className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 focus:border-orange-500 focus:bg-white outline-none transition-all font-bold text-slate-700"
+                  value={fuelFormData.pumpOdometer}
+                  onChange={e => setFuelFormData({...fuelFormData, pumpOdometer: e.target.value})}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center gap-1">
-                <Clock size={12} /> Horímetro
-              </label>
-              <input 
-                type="number" 
-                step="0.1"
-                placeholder="0.0"
-                className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 focus:border-orange-500 focus:bg-white outline-none transition-all font-bold text-slate-700"
-                value={fuelFormData.horimeter}
-                onChange={e => setFuelFormData({...fuelFormData, horimeter: e.target.value})}
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1 flex items-center gap-1">
-                <Fuel size={12} /> Litros Abastecidos
-              </label>
-              <input 
-                type="number" 
-                step="0.01"
-                placeholder="0.00"
-                className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 focus:border-orange-500 focus:bg-white outline-none transition-all font-bold text-slate-700"
-                value={fuelFormData.liters}
-                onChange={e => setFuelFormData({...fuelFormData, liters: e.target.value})}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest ml-1">Hodômetro Bomba (Atual)</label>
-              <input 
-                type="number" 
-                placeholder="Valor após abastecer"
-                className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-5 py-4 focus:border-orange-500 focus:bg-white outline-none transition-all font-bold text-slate-700"
-                value={fuelFormData.pumpOdometer}
-                onChange={e => setFuelFormData({...fuelFormData, pumpOdometer: e.target.value})}
-              />
-            </div>
-          </div>
 
           {error && (
             <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-xs font-bold flex items-center gap-3 border border-red-100">
@@ -478,7 +418,7 @@ export const RegisterForm = () => {
           >
             {isSubmitting ? (
               <div className="w-6 h-6 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : 'SALVAR REGISTRO'}
+            ) : 'Registrar Abastecimento'}
           </button>
         </form>
       </div>

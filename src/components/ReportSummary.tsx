@@ -125,16 +125,17 @@ export const ReportSummary = () => {
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(24);
       doc.text('CPLU', 60, 22);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('ABASTECIMENTO INTERNO', 60, 30);
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
-      doc.text('Consórcio Paulista de Limpeza Urbana', 60, 28);
-      doc.text('RELATÓRIO DE ABASTECIMENTO POR TURNO', 60, 34);
+      doc.text('Consórcio Paulista de Limpeza Urbana', 60, 36);
       
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
       doc.text(`TURNO: ${shift.shiftType.toUpperCase()}`, 140, 22);
       doc.text(`DATA: ${shift.date}`, 140, 29);
-      doc.text(`HORA INÍCIO: ${shift.time}`, 140, 36);
 
       // Summary Info
       doc.setTextColor(0, 0, 0);
@@ -142,31 +143,29 @@ export const ReportSummary = () => {
       doc.setFont('helvetica', 'bold');
       doc.text('RESUMO DO TURNO', 14, 65);
       
+      const finalPump = shiftRecords.length > 0 ? shiftRecords[shiftRecords.length - 1].pumpOdometer : shift.initialPumpOdometer;
+      const totalShiftLiters = shiftRecords.reduce((acc, r) => acc + r.liters, 0);
+
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
-      doc.text(`Nível Inicial da Bomba: ${shift.initialPumpOdometer.toLocaleString()} L`, 14, 75);
-      
-      const finalPump = shiftRecords.length > 0 ? shiftRecords[shiftRecords.length - 1].pumpOdometer : shift.initialPumpOdometer;
-      doc.text(`Nível Final da Bomba: ${finalPump.toLocaleString()} L`, 14, 82);
-      
-      const totalShiftLiters = shiftRecords.reduce((acc, r) => acc + r.liters, 0);
+      doc.text(`HODÔMETRO FINAL DA BOMBA: ${finalPump.toLocaleString()}`, 14, 75);
+      doc.text(`TOTAL ABASTECIDO NO TURNO: ${totalShiftLiters.toFixed(2)} L`, 14, 82);
       doc.text(`Total de Caminhões Atendidos: ${shiftRecords.length}`, 120, 75);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`TOTAL ABASTECIDO: ${totalShiftLiters.toFixed(2)} L`, 120, 82);
 
       // Table
       const tableData = shiftRecords.map(r => [
         r.plate,
-        r.driverName,
-        r.truckKm.toLocaleString(),
-        `${r.liters.toFixed(2)}L`,
         r.time,
-        r.shiftType
+        r.truckKm.toLocaleString(),
+        r.horimeter?.toFixed(1) || '-',
+        `${r.liters.toFixed(2)}L`,
+        r.pumpOdometer.toLocaleString(),
+        r.driverName
       ]);
 
       autoTable(doc, {
         startY: 90,
-        head: [['PLACA', 'MOTORISTA', 'KM ATUAL', 'LITROS', 'HORA', 'TURNO']],
+        head: [['PLACA / PREFIXO', 'HORÁRIO', 'KM', 'HORÍMETRO', 'LITROS', 'HODÔM. BOMBA (FINAL)', 'MOTORISTA']],
         body: tableData,
         headStyles: { 
           fillColor: [249, 115, 22],
@@ -210,15 +209,15 @@ export const ReportSummary = () => {
       
       // Main Data
       const mainData = records.map(r => ({
-        'Placa': r.plate,
-        'Motorista': r.driverName,
-        'Hora': r.time || format(parseISO(r.timestamp), 'HH:mm'),
-        'KM Caminhão': r.truckKm,
+        'Placa / Prefixo': r.plate,
+        'Horário': r.time || format(parseISO(r.timestamp), 'HH:mm'),
+        'KM': r.truckKm,
         'Horímetro': r.horimeter,
-        'Litros': r.liters,
-        'Consumo (KM/L)': r.consumption,
-        'Hodômetro Bomba': r.pumpOdometer,
-        'Data': format(parseISO(r.timestamp), 'dd/MM/yyyy')
+        'Quantidade Abastecida (Litros)': r.liters,
+        'Hodômetro Final da Bomba': r.pumpOdometer,
+        'Nome do Motorista': r.driverName,
+        'Data': format(parseISO(r.timestamp), 'dd/MM/yyyy'),
+        'Turno': r.shiftType
       }));
 
       // Alerts Data
@@ -322,15 +321,39 @@ export const ReportSummary = () => {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <div className="bg-slate-50 p-5 rounded-3xl text-left">
-            <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Total Litros</div>
-            <div className="text-2xl font-black text-orange-600">{totalFuel.toFixed(1)}L</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <div className="bg-slate-50 p-5 rounded-3xl text-left border border-slate-100">
+            <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Total Geral do Dia</div>
+            <div className="flex justify-between items-end">
+              <div>
+                <div className="text-2xl font-black text-orange-600">{totalFuel.toFixed(1)}L</div>
+                <div className="text-[10px] font-bold text-slate-400">{totalRecords} abastecimentos</div>
+              </div>
+              <BarChart3 size={24} className="text-orange-200" />
+            </div>
           </div>
-          <div className="bg-slate-50 p-5 rounded-3xl text-left">
-            <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Registros</div>
-            <div className="text-2xl font-black text-slate-800">{totalRecords}</div>
-          </div>
+
+          {shifts.map(shift => {
+            const shiftRecords = records.filter(r => r.shiftId === shift.id);
+            const shiftTotal = shiftRecords.reduce((acc, r) => acc + r.liters, 0);
+            const shiftFinalPump = shiftRecords.length > 0 ? shiftRecords[shiftRecords.length - 1].pumpOdometer : shift.initialPumpOdometer;
+            
+            return (
+              <div key={shift.id} className="bg-orange-50/50 p-5 rounded-3xl text-left border border-orange-100">
+                <div className="text-[10px] font-black uppercase text-orange-500 tracking-widest mb-1">Turno: {shift.shiftType}</div>
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Total Abastecido:</span>
+                    <span className="text-lg font-black text-orange-600">{shiftTotal.toFixed(1)}L</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Hodômetro Final:</span>
+                    <span className="text-sm font-black text-slate-700">{shiftFinalPump.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         <AnimatePresence>
