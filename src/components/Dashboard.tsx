@@ -30,8 +30,8 @@ export const Dashboard = () => {
   const stats = {
     totalLitros: records.reduce((acc, r) => acc + (r.liters || 0), 0),
     totalAbastecimentos: records.length,
-    mediaConsumo: records.length > 0 
-      ? records.reduce((acc, r) => acc + (r.consumption || 0), 0) / records.filter(r => r.consumption).length || 0
+    mediaConsumo: records.filter(r => r.consumption && r.consumption > 0).length > 0 
+      ? records.reduce((acc, r) => acc + (r.consumption || 0), 0) / records.filter(r => r.consumption && r.consumption > 0).length
       : 0
   };
 
@@ -43,14 +43,15 @@ export const Dashboard = () => {
     }, {})
   ).map(([plate, consumptions]) => {
     const cons = consumptions as number[];
-    const avg = cons.reduce((a, b) => a + b, 0) / cons.length;
+    const avg = cons.length > 0 ? cons.reduce((a, b) => a + b, 0) / cons.length : 0;
     const latest = cons[0] || 0; // records are sorted desc
+    const variation = avg > 0 ? ((latest - avg) / avg) * 100 : 0;
     
     let status: 'ECONÔMICO' | 'NORMAL' | 'CRÍTICO' = 'NORMAL';
     if (latest > avg * 1.05) status = 'ECONÔMICO';
     else if (latest < avg * 0.95) status = 'CRÍTICO';
     
-    return { plate, latest, avg, status };
+    return { plate, latest, avg, status, variation };
   }).sort((a, b) => a.plate.localeCompare(b.plate));
 
   if (loading) {
@@ -109,8 +110,12 @@ export const Dashboard = () => {
               <div key={truck.plate} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                 <div>
                   <div className="text-sm font-black text-slate-800">{truck.plate}</div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                     Consumo: {truck.latest.toFixed(2)} KM/L
+                    <span className={`flex items-center gap-0.5 ${truck.variation > 0 ? 'text-green-500' : truck.variation < 0 ? 'text-red-500' : 'text-slate-400'}`}>
+                      {truck.variation > 0 ? <TrendingUp size={10} /> : truck.variation < 0 ? <TrendingDown size={10} /> : null}
+                      {Math.abs(truck.variation).toFixed(1)}%
+                    </span>
                   </div>
                 </div>
                 <div className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border ${

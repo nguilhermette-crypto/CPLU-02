@@ -163,12 +163,13 @@ export const ReportSummary = () => {
         r.truckKm.toLocaleString(),
         r.horimeter?.toFixed(1) || '-',
         `${r.liters.toFixed(2)}L`,
-        r.pumpOdometer.toLocaleString()
+        r.pumpOdometer.toLocaleString(),
+        r.consumption && r.consumption > 0 ? `${r.consumption.toFixed(2)}` : '--'
       ]);
 
       autoTable(doc, {
         startY: 105,
-        head: [['PLACA', 'MOTORISTA', 'KM', 'HORÍMETRO', 'LITROS', 'HODÔMETRO FINAL']],
+        head: [['PLACA', 'MOTORISTA', 'KM', 'HORÍMETRO', 'LITROS', 'HODÔMETRO FINAL', 'CONS. (km/l)']],
         body: tableData,
         headStyles: { 
           fillColor: [249, 115, 22],
@@ -218,6 +219,7 @@ export const ReportSummary = () => {
         'KM': r.truckKm,
         'Horímetro': r.horimeter,
         'Litros': r.liters,
+        'Consumo (km/l)': r.consumption && r.consumption > 0 ? r.consumption.toFixed(2) : '--',
         'Hodômetro Final da Bomba': r.pumpOdometer,
         'Data': format(parseISO(r.timestamp), 'dd/MM/yyyy'),
         'Turno': r.shiftType
@@ -422,7 +424,7 @@ export const ReportSummary = () => {
               </div>
               <div className="text-right">
                 <div className="font-black text-orange-600">{r.liters}L</div>
-                <div className="text-[10px] font-bold text-slate-500">{r.consumption ? `${r.consumption.toFixed(2)} KM/L` : '-'}</div>
+                <div className="text-[10px] font-bold text-slate-500">{r.consumption && r.consumption > 0 ? `${r.consumption.toFixed(2)} KM/L` : '--'}</div>
                 <div className="text-[10px] font-bold text-slate-400">{(r.truckKm || 0).toLocaleString()} KM</div>
               </div>
             </div>
