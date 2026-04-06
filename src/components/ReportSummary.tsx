@@ -18,7 +18,7 @@ import { format, parseISO, startOfDay, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import { FuelRecord, TruckAlert, AlertStatus, Shift } from '../types';
-import { subscribeToRecordsByDate, getRecordsForCurrentWeek, getAllShifts, getRecordsByShift } from '../services/storage';
+import { subscribeToRecordsByDate, getRecordsForCurrentWeek, getAllShifts, getRecordsByShift, getShiftsByDate } from '../services/storage';
 import { Logo } from './Logo';
 
 export const ReportSummary = () => {
@@ -33,9 +33,8 @@ export const ReportSummary = () => {
 
   useEffect(() => {
     const fetchShifts = async () => {
-      const allShifts = await getAllShifts(100);
       const dateStr = format(selectedDate, 'dd/MM/yyyy');
-      const filteredShifts = allShifts.filter(s => s.date === dateStr);
+      const filteredShifts = await getShiftsByDate(dateStr);
       setShifts(filteredShifts);
     };
     fetchShifts();
@@ -148,24 +147,28 @@ export const ReportSummary = () => {
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
-      doc.text(`HODÔMETRO FINAL DA BOMBA: ${finalPump.toLocaleString()}`, 14, 75);
-      doc.text(`TOTAL ABASTECIDO NO TURNO: ${totalShiftLiters.toFixed(2)} L`, 14, 82);
+      doc.text(`HODÔMETRO INICIAL DA BOMBA: ${shift.initialPumpOdometer.toLocaleString()}`, 14, 75);
+      doc.text(`HODÔMETRO FINAL DA BOMBA: ${finalPump.toLocaleString()}`, 14, 82);
+      doc.text(`QUANTIDADE DE LITROS INICIAL DA BOMBA: ${shift.initialLiters.toLocaleString()} L`, 14, 89);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`TOTAL DE LITROS ABASTECIDOS NO TURNO: ${totalShiftLiters.toFixed(2)} L`, 14, 96);
+      
+      doc.setFont('helvetica', 'normal');
       doc.text(`Total de Caminhões Atendidos: ${shiftRecords.length}`, 120, 75);
 
       // Table
       const tableData = shiftRecords.map(r => [
         r.plate,
-        r.time,
+        r.driverName,
         r.truckKm.toLocaleString(),
         r.horimeter?.toFixed(1) || '-',
         `${r.liters.toFixed(2)}L`,
-        r.pumpOdometer.toLocaleString(),
-        r.driverName
+        r.pumpOdometer.toLocaleString()
       ]);
 
       autoTable(doc, {
-        startY: 90,
-        head: [['PLACA / PREFIXO', 'HORÁRIO', 'KM', 'HORÍMETRO', 'LITROS', 'HODÔM. BOMBA (FINAL)', 'MOTORISTA']],
+        startY: 105,
+        head: [['PLACA', 'MOTORISTA', 'KM', 'HORÍMETRO', 'LITROS', 'HODÔMETRO FINAL']],
         body: tableData,
         headStyles: { 
           fillColor: [249, 115, 22],
@@ -209,13 +212,13 @@ export const ReportSummary = () => {
       
       // Main Data
       const mainData = records.map(r => ({
-        'Placa / Prefixo': r.plate,
-        'Horário': r.time || format(parseISO(r.timestamp), 'HH:mm'),
+        'Placa': r.plate,
+        'Motorista': r.driverName,
+        'Hora': r.time || format(parseISO(r.timestamp), 'HH:mm'),
         'KM': r.truckKm,
         'Horímetro': r.horimeter,
-        'Quantidade Abastecida (Litros)': r.liters,
+        'Litros': r.liters,
         'Hodômetro Final da Bomba': r.pumpOdometer,
-        'Nome do Motorista': r.driverName,
         'Data': format(parseISO(r.timestamp), 'dd/MM/yyyy'),
         'Turno': r.shiftType
       }));
@@ -342,6 +345,10 @@ export const ReportSummary = () => {
               <div key={shift.id} className="bg-orange-50/50 p-5 rounded-3xl text-left border border-orange-100">
                 <div className="text-[10px] font-black uppercase text-orange-500 tracking-widest mb-1">Turno: {shift.shiftType}</div>
                 <div className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Litros Inicial:</span>
+                    <span className="text-sm font-black text-slate-700">{shift.initialLiters.toLocaleString()}L</span>
+                  </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[10px] font-bold text-slate-500 uppercase">Total Abastecido:</span>
                     <span className="text-lg font-black text-orange-600">{shiftTotal.toFixed(1)}L</span>

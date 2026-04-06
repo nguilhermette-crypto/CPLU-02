@@ -19,7 +19,9 @@ import {
   getLastRecordForPlate, 
   subscribeToActiveShift,
   startShift,
-  closeShift
+  closeShift,
+  getLastRecord,
+  getLastShift
 } from '../services/storage';
 import { auth } from '../firebase';
 
@@ -52,7 +54,7 @@ export const RegisterForm = () => {
       return;
     }
 
-    const unsubscribe = subscribeToActiveShift((shift) => {
+    const unsubscribe = subscribeToActiveShift(async (shift) => {
       setActiveShift(shift);
       setIsLoadingShift(false);
       
@@ -62,7 +64,27 @@ export const RegisterForm = () => {
         let detectedShift: 'Manhã' | 'Tarde' = 'Manhã';
         if (hour >= 12) detectedShift = 'Tarde';
         
-        setShiftFormData(prev => ({ ...prev, shiftType: detectedShift }));
+        let initialPumpOdometer = '';
+        let initialLiters = '';
+
+        // If it's afternoon, try to get the last record's pump odometer
+        if (detectedShift === 'Tarde') {
+          const lastRec = await getLastRecord();
+          if (lastRec) {
+            initialPumpOdometer = lastRec.pumpOdometer.toString();
+          }
+          
+          const lastShift = await getLastShift();
+          if (lastShift) {
+            initialLiters = lastShift.initialLiters.toString();
+          }
+        }
+        
+        setShiftFormData({ 
+          shiftType: detectedShift,
+          initialPumpOdometer,
+          initialLiters
+        });
       }
     });
 
@@ -232,7 +254,16 @@ export const RegisterForm = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShiftFormData({...shiftFormData, shiftType: 'Tarde'})}
+                  onClick={async () => {
+                    const lastRec = await getLastRecord();
+                    const lastShift = await getLastShift();
+                    setShiftFormData({
+                      ...shiftFormData, 
+                      shiftType: 'Tarde',
+                      initialPumpOdometer: lastRec ? lastRec.pumpOdometer.toString() : shiftFormData.initialPumpOdometer,
+                      initialLiters: lastShift ? lastShift.initialLiters.toString() : shiftFormData.initialLiters
+                    });
+                  }}
                   className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                     shiftFormData.shiftType === 'Tarde' 
                       ? 'bg-white text-orange-600 shadow-sm' 

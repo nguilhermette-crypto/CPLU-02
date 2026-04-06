@@ -347,6 +347,19 @@ export const getRecordsByShift = async (shiftId: string): Promise<FuelRecord[]> 
   }
 };
 
+export const getLastRecord = async (): Promise<FuelRecord | null> => {
+  const path = getCollectionPath();
+  const q = query(collection(db, path), orderBy('timestamp', 'desc'), limit(1));
+  try {
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return null;
+    return { ...snapshot.docs[0].data(), id: snapshot.docs[0].id } as FuelRecord;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+    return null;
+  }
+};
+
 export const getShiftById = async (shiftId: string): Promise<Shift | null> => {
   const path = getShiftCollectionPath();
   try {
@@ -368,6 +381,31 @@ export const getAllShifts = async (limitCount: number = 20): Promise<Shift[]> =>
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, path);
     return [];
+  }
+};
+
+export const getShiftsByDate = async (dateStr: string): Promise<Shift[]> => {
+  const path = getShiftCollectionPath();
+  const q = query(collection(db, path), where('date', '==', dateStr));
+  try {
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })) as Shift[];
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    return [];
+  }
+};
+
+export const getLastShift = async (): Promise<Shift | null> => {
+  const path = getShiftCollectionPath();
+  const q = query(collection(db, path), orderBy('timestamp', 'desc'), limit(1));
+  try {
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return null;
+    return { ...snapshot.docs[0].data(), id: snapshot.docs[0].id } as Shift;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+    return null;
   }
 };
 
