@@ -320,6 +320,55 @@ export const saveRecord = async (record: Omit<FuelRecord, 'id'>, activeShift: Sh
   }
 };
 
+export const updateRecord = async (id: string, updates: Partial<FuelRecord>, activeShift?: Shift) => {
+  const path = getCollectionPath();
+  const shiftPath = getShiftCollectionPath();
+  
+  try {
+    const docRef = doc(db, path, id);
+    const oldDoc = await getDocFromServer(docRef);
+    if (!oldDoc.exists()) throw new Error('Registro não encontrado');
+    const oldData = oldDoc.data() as FuelRecord;
+
+    // If liters changed and we have an active shift, update remaining liters
+    if (updates.liters !== undefined && activeShift && updates.liters !== oldData.liters) {
+      const diff = updates.liters - oldData.liters;
+      const newRemaining = Math.max(0, (activeShift.remainingLiters || 0) - diff);
+      await updateDoc(doc(db, shiftPath, activeShift.id), {
+        remainingLiters: newRemaining
+      });
+    }
+
+    // Recalculate consumption if KM or liters changed
+    if (updates.truckKm !== undefined || updates.liters !== undefined) {
+      // This is complex because it affects the NEXT record too.
+      // For now, let's just update this record's consumption if it's not a morning shift
+      if (oldData.shiftType !== 'Manhã') {
+        const q = query(
+          collection(db, path),
+          where('plate', '==', oldData.plate),
+          where('timestamp', '<', oldData.timestamp),
+          orderBy('timestamp', 'desc'),
+          limit(1)
+        );
+        const prevSnapshot = await getDocs(q);
+        if (!prevSnapshot.empty) {
+          const prevData = prevSnapshot.docs[0].data() as FuelRecord;
+          const currentKm = updates.truckKm !== undefined ? Number(updates.truckKm) : oldData.truckKm;
+          const prevLiters = prevData.liters;
+          if (currentKm > prevData.truckKm && prevLiters > 0) {
+            updates.consumption = Number(((currentKm - prevData.truckKm) / prevLiters).toFixed(2));
+          }
+        }
+      }
+    }
+
+    await updateDoc(docRef, updates);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, `${path}/${id}`);
+  }
+};
+
 export const removeRecord = async (id: string) => {
   const path = getCollectionPath();
   try {

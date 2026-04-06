@@ -12,13 +12,17 @@ import {
   Truck,
   TrendingUp,
   TrendingDown,
-  Loader2
+  Loader2,
+  Pencil,
+  X,
+  Save,
+  Filter
 } from 'lucide-react';
-import { format, parseISO, startOfDay, addDays, subDays } from 'date-fns';
+import { format, parseISO, startOfDay, addDays, subDays, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import { FuelRecord, TruckAlert, AlertStatus, Shift } from '../types';
-import { subscribeToRecordsByDate, getRecordsForCurrentWeek, getAllShifts, getRecordsByShift, getShiftsByDate } from '../services/storage';
+import { subscribeToRecordsByDate, getRecordsForCurrentWeek, getAllShifts, getRecordsByShift, getShiftsByDate, updateRecord, subscribeToActiveShift } from '../services/storage';
 import { Logo } from './Logo';
 
 export const ReportSummary = () => {
@@ -29,7 +33,26 @@ export const ReportSummary = () => {
   const [error, setError] = useState<string | null>(null);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [isGenerating, setIsGenerating] = useState<string | null>(null);
+  const [activeShift, setActiveShift] = useState<Shift | null>(null);
+  const [showShiftModal, setShowShiftModal] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<FuelRecord | null>(null);
+  const [filterType, setFilterType] = useState<'Todos' | 'Manhã' | 'Tarde'>('Todos');
   const dateInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToActiveShift(setActiveShift);
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    // Set default filter based on current shift if it's today
+    if (isSameDay(selectedDate, new Date())) {
+      const hour = new Date().getHours();
+      setFilterType(hour >= 12 ? 'Tarde' : 'Manhã');
+    } else {
+      setFilterType('Todos');
+    }
+  }, [selectedDate]);
 
   useEffect(() => {
     const fetchShifts = async () => {
@@ -257,6 +280,32 @@ export const ReportSummary = () => {
   const nextDay = () => setSelectedDate(prev => addDays(prev, 1));
   const prevDay = () => setSelectedDate(prev => subDays(prev, 1));
 
+  const handleUpdateRecord = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRecord) return;
+
+    try {
+      const updates = {
+        truckKm: Number(editingRecord.truckKm),
+        horimeter: Number(editingRecord.horimeter),
+        liters: Number(editingRecord.liters),
+        pumpOdometer: Number(editingRecord.pumpOdometer),
+        driverName: editingRecord.driverName
+      };
+
+      await updateRecord(editingRecord.id, updates, activeShift || undefined);
+      setEditingRecord(null);
+    } catch (err) {
+      console.error('Error updating record:', err);
+      setError('Erro ao atualizar o registro.');
+    }
+  };
+
+  const filteredRecords = records.filter(r => {
+    if (filterType === 'Todos') return true;
+    return r.shiftType === filterType;
+  });
+
   return (
     <motion.div 
       initial={{ opacity: 0 }} 
@@ -325,46 +374,6 @@ export const ReportSummary = () => {
           </div>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <div className="bg-slate-50 p-5 rounded-3xl text-left border border-slate-100">
-            <div className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Total Geral do Dia</div>
-            <div className="flex justify-between items-end">
-              <div>
-                <div className="text-2xl font-black text-orange-600">{totalFuel.toFixed(1)}L</div>
-                <div className="text-[10px] font-bold text-slate-400">{totalRecords} abastecimentos</div>
-              </div>
-              <BarChart3 size={24} className="text-orange-200" />
-            </div>
-          </div>
-
-          {shifts.map(shift => {
-            const shiftRecords = records.filter(r => r.shiftId === shift.id);
-            const shiftTotal = shiftRecords.reduce((acc, r) => acc + r.liters, 0);
-            const shiftFinalPump = shiftRecords.length > 0 ? shiftRecords[shiftRecords.length - 1].pumpOdometer : shift.initialPumpOdometer;
-            
-            return (
-              <div key={shift.id} className="bg-orange-50/50 p-5 rounded-3xl text-left border border-orange-100">
-                <div className="text-[10px] font-black uppercase text-orange-500 tracking-widest mb-1">Turno: {shift.shiftType}</div>
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">Litros Inicial:</span>
-                    <span className="text-sm font-black text-slate-700">{shift.initialLiters.toLocaleString()}L</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">Total Abastecido:</span>
-                    <span className="text-lg font-black text-orange-600">{shiftTotal.toFixed(1)}L</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">Hodômetro Final:</span>
-                    <span className="text-sm font-black text-slate-700">{shiftFinalPump.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
         <AnimatePresence>
           {error && (
             <motion.div 
@@ -380,24 +389,69 @@ export const ReportSummary = () => {
         </AnimatePresence>
 
         <div className="flex flex-col gap-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="relative">
             <button 
-              onClick={() => generateShiftPDF('Manhã')}
+              onClick={() => setShowShiftModal(true)}
               disabled={isGenerating !== null}
-              className="bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white font-black py-5 rounded-[24px] shadow-xl shadow-orange-100 flex items-center justify-center gap-3 transition-all active:scale-[0.96]"
+              className="w-full bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white font-black py-5 rounded-[24px] shadow-xl shadow-orange-100 flex items-center justify-center gap-3 transition-all active:scale-[0.96]"
             >
-              {isGenerating === 'Manhã' ? <Loader2 size={22} className="animate-spin" /> : <FileText size={22} />}
-              GERAR PDF - MANHÃ
+              {isGenerating !== null ? <Loader2 size={22} className="animate-spin" /> : <FileText size={22} />}
+              GERAR PDF
             </button>
 
-            <button 
-              onClick={() => generateShiftPDF('Tarde')}
-              disabled={isGenerating !== null}
-              className="bg-orange-500 hover:bg-orange-600 disabled:bg-orange-300 text-white font-black py-5 rounded-[24px] shadow-xl shadow-orange-100 flex items-center justify-center gap-3 transition-all active:scale-[0.96]"
-            >
-              {isGenerating === 'Tarde' ? <Loader2 size={22} className="animate-spin" /> : <FileText size={22} />}
-              GERAR PDF - TARDE
-            </button>
+            <AnimatePresence>
+              {showShiftModal && (
+                <>
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setShowShiftModal(false)}
+                    className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60]"
+                  />
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                    className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-sm bg-white p-8 rounded-[32px] shadow-2xl z-[70] border border-slate-100"
+                  >
+                    <h3 className="text-xl font-black text-slate-800 mb-6 text-center">Selecione o Turno</h3>
+                    <div className="space-y-3">
+                      <button 
+                        onClick={() => {
+                          generateShiftPDF('Manhã');
+                          setShowShiftModal(false);
+                        }}
+                        className="w-full bg-slate-50 hover:bg-orange-500 hover:text-white text-slate-700 font-black py-5 rounded-2xl transition-all flex items-center justify-center gap-3 group"
+                      >
+                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-orange-500 group-hover:bg-orange-400 group-hover:text-white transition-colors">
+                          <Play size={18} />
+                        </div>
+                        TURNO MANHÃ
+                      </button>
+                      <button 
+                        onClick={() => {
+                          generateShiftPDF('Tarde');
+                          setShowShiftModal(false);
+                        }}
+                        className="w-full bg-slate-50 hover:bg-orange-500 hover:text-white text-slate-700 font-black py-5 rounded-2xl transition-all flex items-center justify-center gap-3 group"
+                      >
+                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-orange-500 group-hover:bg-orange-400 group-hover:text-white transition-colors">
+                          <Play size={18} />
+                        </div>
+                        TURNO TARDE
+                      </button>
+                    </div>
+                    <button 
+                      onClick={() => setShowShiftModal(false)}
+                      className="w-full mt-6 text-slate-400 font-bold text-xs uppercase tracking-widest hover:text-slate-600 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
           
           <button 
@@ -411,16 +465,42 @@ export const ReportSummary = () => {
       </div>
 
       <div className="bg-white p-6 rounded-[32px] shadow-sm border border-slate-100">
-        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-2">
-          <History size={14} />
-          Lançamentos do Dia
-        </h3>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
+            <History size={14} />
+            Lançamentos do Dia
+          </h3>
+          <div className="flex bg-slate-50 p-1 rounded-xl">
+            {(['Todos', 'Manhã', 'Tarde'] as const).map((type) => (
+              <button
+                key={type}
+                onClick={() => setFilterType(type)}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                  filterType === type 
+                    ? 'bg-white text-orange-500 shadow-sm' 
+                    : 'text-slate-400 hover:text-slate-600'
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="space-y-4">
-          {records.slice().reverse().map(r => (
-            <div key={r.id} className="flex items-center justify-between text-sm border-b border-slate-50 pb-3 last:border-0 last:pb-0">
-              <div>
-                <div className="font-black text-slate-700">{r.plate}</div>
-                <div className="text-[10px] font-bold text-slate-400">{format(parseISO(r.timestamp), 'HH:mm')} - {r.shiftType}</div>
+          {filteredRecords.slice().reverse().map(r => (
+            <div key={r.id} className="flex items-center justify-between text-sm border-b border-slate-50 pb-3 last:border-0 last:pb-0 group">
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => setEditingRecord(r)}
+                  className="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-orange-500 hover:bg-orange-50 transition-all opacity-0 group-hover:opacity-100"
+                >
+                  <Pencil size={14} />
+                </button>
+                <div>
+                  <div className="font-black text-slate-700">{r.plate}</div>
+                  <div className="text-[10px] font-bold text-slate-400">{format(parseISO(r.timestamp), 'HH:mm')} - {r.shiftType}</div>
+                </div>
               </div>
               <div className="text-right">
                 <div className="font-black text-orange-600">{r.liters}L</div>
@@ -429,9 +509,116 @@ export const ReportSummary = () => {
               </div>
             </div>
           ))}
-          {records.length === 0 && <p className="text-xs text-slate-300 italic text-center py-4">Nenhum dado para esta data.</p>}
+          {filteredRecords.length === 0 && <p className="text-xs text-slate-300 italic text-center py-4">Nenhum dado para este filtro.</p>}
         </div>
       </div>
+
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {editingRecord && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingRecord(null)}
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100]"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[95%] max-w-lg bg-white p-8 rounded-[32px] shadow-2xl z-[110] border border-slate-100 overflow-y-auto max-h-[90vh]"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-black text-slate-800">Editar Registro</h3>
+                <button onClick={() => setEditingRecord(null)} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateRecord} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-1 block">Placa (Não editável)</label>
+                    <input 
+                      type="text"
+                      value={editingRecord.plate}
+                      disabled
+                      className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 font-bold text-slate-400 outline-none"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-1 block">KM Atual</label>
+                    <input 
+                      type="number"
+                      value={editingRecord.truckKm}
+                      onChange={(e) => setEditingRecord({...editingRecord, truckKm: Number(e.target.value)})}
+                      className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 font-bold text-slate-700 focus:ring-2 focus:ring-orange-500 transition-all outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-1 block">Horímetro</label>
+                    <input 
+                      type="number"
+                      step="0.1"
+                      value={editingRecord.horimeter}
+                      onChange={(e) => setEditingRecord({...editingRecord, horimeter: Number(e.target.value)})}
+                      className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 font-bold text-slate-700 focus:ring-2 focus:ring-orange-500 transition-all outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-1 block">Litros</label>
+                    <input 
+                      type="number"
+                      step="0.01"
+                      value={editingRecord.liters}
+                      onChange={(e) => setEditingRecord({...editingRecord, liters: Number(e.target.value)})}
+                      className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 font-bold text-slate-700 focus:ring-2 focus:ring-orange-500 transition-all outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-1 block">Bomba Final</label>
+                    <input 
+                      type="number"
+                      value={editingRecord.pumpOdometer}
+                      onChange={(e) => setEditingRecord({...editingRecord, pumpOdometer: Number(e.target.value)})}
+                      className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 font-bold text-slate-700 focus:ring-2 focus:ring-orange-500 transition-all outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4 mb-1 block">Motorista</label>
+                    <input 
+                      type="text"
+                      value={editingRecord.driverName}
+                      onChange={(e) => setEditingRecord({...editingRecord, driverName: e.target.value})}
+                      className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 font-bold text-slate-700 focus:ring-2 focus:ring-orange-500 transition-all outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  type="submit"
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white font-black py-5 rounded-[24px] shadow-xl shadow-orange-100 flex items-center justify-center gap-3 transition-all active:scale-[0.96] mt-4"
+                >
+                  <Save size={22} />
+                  SALVAR ALTERAÇÕES
+                </button>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
